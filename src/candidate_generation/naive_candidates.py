@@ -18,7 +18,7 @@ def generate_candidate_spans(text,max_len=21):
         length = len(sent)
         spans_sent = []
         for i in range(0, length):
-            for j in range(i, min(i + max_len, length)):
+            for j in range(i, min(i + max_len, length+1)):
                 spans_sent.append([i, j])
         spans.append(spans_sent)
     return spans

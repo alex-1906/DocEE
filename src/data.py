@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from src.candidate_generation.naive_candidates import generate_spans_naive, generate_candidate_spans
 from src.candidate_generation.util import sent_ids_to_token_ids
+from transformers import AutoTokenizer
+
 
 def tokenization_and_vectorization(tokens, entities, tokenizer):
     """
@@ -140,8 +142,8 @@ def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
         # convert indexing to token level
         candidate_spans = sent_ids_to_token_ids(sentences, token_map, candidate_spans)
 
-
-
+        #tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        #text = tokenizer.convert_ids_to_tokens(token_ids)
 
         output.append({
             'title': sample['title'],
@@ -161,6 +163,7 @@ def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
 
 
 def collate_fn(batch):
+
     # get max dimensions for padding
     max_len = max([len(f["token_ids"]) for f in batch])
 
