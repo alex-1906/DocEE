@@ -95,7 +95,8 @@ ipython_config.py
 checkpoints
 
 __pypackages__/
-data
+data/DocRed
+data/Dump
 
 .DS_Store
 venv/
