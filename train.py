@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from src.losses import ATLoss
 from src.util import process_long_input
 from transformers import BertConfig, RobertaConfig, DistilBertConfig, XLMRobertaConfig
-from src import model
+from . import model
 
 # %%
 
@@ -107,12 +107,13 @@ class Encoder(nn.Module):
         batch_text = []
 
         if not self.training:
-            entity_spans = [[],[],[],[]]
-            entity_types = [[],[],[],[]]
-            entity_ids = [[],[],[],[]]
-            relation_labels = [[],[],[],[]]
+            entity_spans = [[]*sequence_output.shape[0]]
+            entity_types = [[]*sequence_output.shape[0]]
+            entity_ids = [[]*sequence_output.shape[0]]
+            relation_labels = [[]*sequence_output.shape[0]]
         
         for batch_i in range(sequence_output.size(0)):
+            #entity_spans = entity_spans[batch_i]
             text_i = self.tokenizer.convert_ids_to_tokens(input_ids[batch_i])
             batch_text.append(text_i)
 
@@ -366,4 +367,6 @@ loss ,triples, events = mymodel(input_ids, attention_mask, candidate_spans, rela
 
 loss
 
+# %%
+relation_labels
 # %%

@@ -83,3 +83,16 @@ def set_seed(seed, n_gpu=1):
     torch.manual_seed(seed)
     if n_gpu > 0 and torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def safe_div(num, denom):
+    if denom > 0:
+        return num / denom
+    else:
+        return 0
+
+def compute_f1(predicted, gold, matched):
+    precision = safe_div(matched, predicted)
+    recall = safe_div(matched, gold)
+    f1 = safe_div(2 * precision * recall, precision + recall)
+    return precision, recall, f1
