@@ -49,7 +49,8 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/DocRed_Format/AllEntities/train.json",
+    #parse_file("data/WikiEvents/DocRed_Format/AllEntities/train.json",
+    parse_file("data/WikiEvents/DocRed_Format/train_small.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -71,6 +72,9 @@ mymodel = Encoder(lm_config,
                  )
 optimizer = AdamW(mymodel.parameters(), lr=1e-5, eps=1e-6)
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+mymodel.to(device)
 
 # %%
 # ---------- Train Loop -----------#
@@ -86,7 +90,7 @@ with tqdm.tqdm(train_loader) as progress_bar:
         input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
         
         # --------- E2E Task  ------------#
-        mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
+        mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
 
         loss.backward()
         optimizer.step()
