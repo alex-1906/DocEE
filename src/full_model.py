@@ -141,7 +141,9 @@ class Encoder(nn.Module):
 
                     else:
 
-                        mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long)
+                        mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long
+                        
+                        )
                         for idx,c in enumerate(candidate_spans[batch_i]):
                             for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
                                 if [c] == ent:
