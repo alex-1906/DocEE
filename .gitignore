@@ -1,3 +1,15 @@
+#own files
+train_e2e.py
+train.py
+eval_eae.py
+eval.py
+preprocessing/
+notebooks/
+data/
+eval_eae_playground
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
