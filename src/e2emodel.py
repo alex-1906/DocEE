@@ -16,11 +16,9 @@ from transformers import BertConfig, RobertaConfig, DistilBertConfig, XLMRoberta
 from itertools import groupby
 #%%
 class Encoder(nn.Module):
-    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention = True, at_inference=True):
+    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention = True):
         super().__init__()
-        print("updated encoder")
-        self.soft_mention = soft_mention
-
+        
         self.config = config
         self.model = model
 
@@ -34,10 +32,10 @@ class Encoder(nn.Module):
 
 
         self.triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
-        self.ce_loss = nn.CrossEntropyLoss()
         self.at_loss = ATLoss()
-        
+        self.ce_loss = nn.CrossEntropyLoss()
 
+        self.soft_mention = soft_mention
         self.k_mentions = 50
                 
         self.cls_token_id = cls_token_id
@@ -48,8 +46,6 @@ class Encoder(nn.Module):
         self.relation_types = relation_types
         self.mention_types = mention_types
         self.feasible_roles = feasible_roles
-
-        self.at_inference = at_inference
         
         
     def encode(self, input_ids, attention_mask):
@@ -63,29 +59,115 @@ class Encoder(nn.Module):
         sequence_output, attention = process_long_input(self.model, input_ids, attention_mask, start_tokens, end_tokens)
         return sequence_output, attention
 
-    def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids,batch_text):
+
+   
+        
+    def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text):
         sequence_output, attention = self.encode(input_ids, attention_mask)
         loss = torch.zeros((1)).to(sequence_output)
+        mention_loss = torch.zeros((1)).to(sequence_output)
         counter = 0
         batch_triples = []
         batch_events = []
-
         
+        if not self.training:
+            entity_spans = [[] for _ in range(sequence_output.shape[0])]
+            entity_spans = [[] for _ in range(sequence_output.shape[0])]
+            entity_types = [[] for _ in range(sequence_output.shape[0])]
+            entity_ids = [[] for _ in range(sequence_output.shape[0])]
+            relation_labels = [[] for _ in range(sequence_output.shape[0])]
+                    
         for batch_i in range(sequence_output.size(0)):
 
+            # MENTION DETECTION
 
-            # ---------- Pooling Entity Embeddings and Attentions ------------
-            entity_embeddings = []
-            entity_attentions = []
-            for ent in entity_spans[batch_i]:
-                ent_embedding = torch.mean(sequence_output[batch_i, ent[0][0]:ent[0][1],:],0)
-                entity_embeddings.append(ent_embedding)
-                ent_attention = torch.mean(attention[batch_i,:,ent[0][0]:ent[0][1],:],1)
-                entity_attentions.append(ent_attention)
-            if(len(entity_embeddings) == 0):
-                continue
-            entity_embeddings = torch.stack(entity_embeddings)
-            entity_attentions = torch.stack(entity_attentions)
+            # ---------- Candidate span embeddings ------------
+            mention_candidates = []
+            candidates_attentions = []
+            for span in candidate_spans[batch_i]:
+                mention_embedding = torch.mean(sequence_output[batch_i, span[0]:span[1]+1,:], 0)
+                mention_attention = torch.mean(attention[batch_i, span[0]:span[1]+1,:], 0)
+                mention_candidates.append(mention_embedding)
+                candidates_attentions.append(mention_attention)
+            embs = torch.stack(mention_candidates)
+            atts = torch.stack(candidates_attentions)
+
+            # ---------- Span Scoring ------------
+            span_scores = embs.unsqueeze(1) * self.entity_anchor.unsqueeze(0)
+            span_scores = torch.sum(span_scores, dim=-1)
+            span_scores_max, class_for_span = torch.max(span_scores, dim=-1)
+            scores_for_max, max_spans = torch.topk(span_scores_max.view(-1), min(self.k_mentions, embs.size(0)), dim=0)
+            class_for_max_span = class_for_span[max_spans]
+
+            if self.training:
+                # ---------- Mention Loss and adding true spans during training ------------
+
+                if self.soft_mention:
+                    spans_for_type = {}
+
+                    for span, rtype in zip(entity_spans[batch_i], entity_types[batch_i]):
+                        if rtype not in spans_for_type.keys():
+                            spans_for_type[rtype] = []
+                        spans_for_type[rtype].append(span[0])
+
+                    anchors, positives, negatives = [], [], []
+
+                    for rtype, positive_examples in spans_for_type.items():
+
+                        # add negative examples from entity spans
+                        for pos in positive_examples:
+                            for rtype2, negative_examples in spans_for_type.items():
+                                if rtype2 == rtype:
+                                    continue
+                                for neg in negative_examples:
+                                    anchors.append(self.entity_anchor[self.mention_types.index(rtype),:])
+                                    positives.append(torch.mean(sequence_output[batch_i, pos[0]:pos[1]+1,:], 0))
+                                    negatives.append(torch.mean(sequence_output[batch_i, neg[0]:neg[1]+1,:], 0))
+
+                        # add negative examples from candidate spans
+                        for pos in positive_examples:
+                            for neg in [x for x in candidate_spans[batch_i] if x not in entity_spans[batch_i]]:
+                                anchors.append(self.entity_anchor[self.mention_types.index(rtype),:])
+                                positives.append(torch.mean(sequence_output[batch_i, pos[0]:pos[1]+1,:], 0))
+                                negatives.append(torch.mean(sequence_output[batch_i, neg[0]:neg[1]+1,:], 0))
+
+
+                    mention_loss += self.triplet_loss(torch.stack(anchors), torch.stack(positives), torch.stack(negatives))
+
+                else:
+                    #one-hot encoding for annotated mention labels 
+                    mention_labels = torch.zeros(len(candidate_spans[batch_i]),len(self.mention_types))
+                    for idx,c in enumerate(candidate_spans[batch_i]):
+                        for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
+                            if [c] == ent:
+                                mention_labels[idx][self.mention_types.index(t)] = 1
+                    mention_loss += self.ce_loss(mention_labels, span_scores)
+
+
+
+            # ARGUMENT ROLE LABELING
+            
+            if self.training:
+                # ---------- Pooling Entity Embeddings and Attentions ------------
+                entity_embeddings = []
+                entity_attentions = []
+                for ent in entity_spans[batch_i]:
+                    ent_embedding = torch.mean(sequence_output[batch_i, ent[0][0]:ent[0][1],:],0)
+                    entity_embeddings.append(ent_embedding)
+                    ent_attention = torch.mean(attention[batch_i,:,ent[0][0]:ent[0][1],:],1)
+                    entity_attentions.append(ent_attention)
+                if(len(entity_embeddings) == 0):
+                    continue
+                entity_embeddings = torch.stack(entity_embeddings)
+                entity_attentions = torch.stack(entity_attentions)
+            else:
+                entity_embeddings = embs[max_spans]
+                entity_attentions = atts[max_spans]
+
+                for c in class_for_max_span:
+                    entity_types[batch_i].append(self.mention_types[c])
+                for s in max_spans:
+                    entity_spans[batch_i].append([candidate_spans[batch_i][s]])
 
                 
             # ---------- Localized Context Pooling ------------
@@ -99,7 +181,6 @@ class Encoder(nn.Module):
                 triggers.append(s)
                 for o in range(entity_embeddings.shape[0]):
                     if s != o:
-
                         relation_candidates.append((s,o))
 
                         A_s = entity_attentions[s,:,:]
@@ -128,7 +209,6 @@ class Encoder(nn.Module):
             predictions = torch.argmax(scores, dim=-1, keepdim=False)
             #Achtung: NOTA wird an 0. Stelle gesetzt
             
-            #relation_labels.to(sequence_output)
             if self.training:
             # ---------- ATLoss with one-hot encoding for true labels ------------
                 targets = []
@@ -142,29 +222,18 @@ class Encoder(nn.Module):
                 counter += 1
             
             # ---------- Inference ------------
-            if self.at_inference:
-                pred_classes = self.at_loss.get_label(scores)
-                triples = []
-                for idx,pair in enumerate(relation_candidates):
-                    preds = pred_classes[idx]
-                    preds = [i[0] for i in preds.nonzero().tolist()]
-                    #seltener Fall, dass ein Pair mehrere Labels hat
-                    for p in preds:
-                        triple = {
-                            pair:self.relation_types[p]
-                        }
-                        triples.append(triple)
-                batch_triples.append(triples)
-            else:
-                triples = []
-                for idx,pair in enumerate(relation_candidates):
+            pred_classes = self.at_loss.get_label(scores)
+            triples = []
+            for idx,pair in enumerate(relation_candidates):
+                preds = pred_classes[idx]
+                preds = [i[0] for i in preds.nonzero().tolist()]
+                #seltener Fall, dass ein Pair mehrere Labels hat
+                for p in preds:
                     triple = {
-                        pair:self.relation_types[predictions[idx]]
+                        pair:self.relation_types[p]
                     }
                     triples.append(triple)
-                batch_triples.append(triples)
-
-            
+            batch_triples.append(triples)
                 
             events = []
             for t,v in groupby(triples,key=lambda x:next(iter(x.keys()))[0]):
@@ -172,7 +241,7 @@ class Encoder(nn.Module):
                 t_start = entity_spans[batch_i][t][0][0]
                 t_end = entity_spans[batch_i][t][0][1]
                 event_type = t_word.split(".TRIGGER")[0]
-                event_id = entity_ids[batch_i][t]
+                event_id = 'unk'
 
                 arguments = []
                 for d in v:
@@ -184,16 +253,15 @@ class Encoder(nn.Module):
                         a_start = entity_spans[batch_i][o][0][0]
                         a_end = entity_spans[batch_i][o][0][1]
                         argument = {
-                            'entity_id':entity_ids[batch_i][o],
+                            'entity_id':'unk',
                             'role':r,
                             'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][a_start:a_end]).lstrip(),
                             'start':a_start,
                             'end':a_end,
                         }
                         arguments.append(argument)
-
                 event = {
-                    'id': entity_ids[batch_i][t],
+                    'id': 'unk',
                     'event_type':event_type,
                     'trigger': {'start':t_start ,'end':t_end, 'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][t_start:t_end]).lstrip()},
                     'arguments':arguments
@@ -203,5 +271,4 @@ class Encoder(nn.Module):
         if(counter == 0):
                 return torch.autograd.Variable(loss,requires_grad=True), batch_triples, batch_events
         else:
-            return loss/counter, batch_triples, batch_events
-        #TODO: Irgendetwas sollte implizit berücksichtigt werden?
+            return (mention_loss+loss)/counter, batch_triples, batch_events
