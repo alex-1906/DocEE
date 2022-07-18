@@ -34,7 +34,7 @@ parser.add_argument("--k_mentions", type=int, default=50, help="number of mentio
 parser.add_argument("--pooling", type=str, default="mean", help="mention pooling method (mean, max)")
 parser.add_argument("--epochs", type=int, default=1, help="number of epochs")
 parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
-parser.add_argument("--project", type=str, default="my-test-project", help="project name for wandb")
+parser.add_argument("--project", type=str, default="test-with-gpu", help="project name for wandb")
 
 
 args = parser.parse_args()

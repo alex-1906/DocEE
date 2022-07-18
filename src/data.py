@@ -80,7 +80,7 @@ def tokenization_and_vectorization(tokens, entities, tokenizer):
     for ms, mention in zip(mention_spans, mentions):
         entities[ms[1]].append(mention)
 
-    return token_ids, entities, token_map
+    return token_ids, entities, token_map, token_strings
 
 
 def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
@@ -121,7 +121,7 @@ def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
                 entity_ids.append(mention['id'])
             entities.append(mentions)
 
-        token_ids, entity_spans, token_map = tokenization_and_vectorization(tokens, entities, tokenizer)
+        token_ids, entity_spans, token_map, token_strings = tokenization_and_vectorization(tokens, entities, tokenizer)
 
         relation_labels = {}
 
@@ -147,7 +147,7 @@ def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
 
         output.append({
             'title': sample['title'],
-            'text': sentences,
+            'text': token_strings,
             'token_map': token_map,
             'token_ids': token_ids,
             'entity_spans': entity_spans,

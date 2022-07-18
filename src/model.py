@@ -13,11 +13,12 @@ import torch.nn.functional as F
 from src.losses import ATLoss
 from src.util import process_long_input
 from transformers import BertConfig, RobertaConfig, DistilBertConfig, XLMRobertaConfig
+from itertools import groupby
 #%%
 class Encoder(nn.Module):
     def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention = True):
         super().__init__()
-        print("correct encoder")
+        print("updated encoder")
         self.soft_mention = soft_mention
 
         self.config = config
@@ -133,7 +134,7 @@ class Encoder(nn.Module):
             # ---------- ATLoss with one-hot encoding for true labels ------------
                 targets = []
                 for r in relation_candidates:
-                    onehot = torch.zeros(len(relation_types))
+                    onehot = torch.zeros(len(self.relation_types))
                     if r in relation_labels[batch_i]:
                         onehot[relation_labels[batch_i][r]] = 1.0
                     targets.append(onehot)
@@ -145,7 +146,7 @@ class Encoder(nn.Module):
             triples = []
             for idx,pair in enumerate(relation_candidates):
                 triple = {
-                    pair:relation_types[predictions[idx]]
+                    pair:self.relation_types[predictions[idx]]
                 }
                 triples.append(triple)
             batch_triples.append(triples)
@@ -164,13 +165,13 @@ class Encoder(nn.Module):
                     o = dic[0][1]
                     r = dic[1]
 
-                    if r in mymodel.feasible_roles[event_type]:
+                    if r in self.feasible_roles[event_type]:
                         a_start = entity_spans[batch_i][o][0][0]
                         a_end = entity_spans[batch_i][o][0][1]
                         argument = {
                             'entity_id':entity_ids[batch_i][o],
                             'role':r,
-                            'text':batch_text[batch_i][a_start:a_end][0],
+                            'text':" ".join(batch_text[batch_i][a_start:a_end]),
                             'start':a_start,
                             'end':a_end,
                         }
@@ -179,7 +180,7 @@ class Encoder(nn.Module):
                 event = {
                     'id': entity_ids[batch_i][t],
                     'event_type':event_type,
-                    'trigger': {'start':t_start ,'end':t_end, 'text':batch_text[batch_i][t_start:t_end][0]},
+                    'trigger': {'start':t_start ,'end':t_end, 'text':" ".join(batch_text[batch_i][t_start:t_end])},
                     'arguments':arguments
                 }
                 events.append(event)
