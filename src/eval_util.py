@@ -1,7 +1,6 @@
 from src.util import safe_div, compute_f1
 import pandas as pd
 
-
 def get_df(event_list,token_maps,doc_id_list):
     df = pd.read_json('data/Dump/train_eval.json')
 
@@ -106,6 +105,7 @@ def get_eval(event_list,token_maps,doc_id_list):
     }
     return report
 # %%
+# ----- Evaluation by Id -----
 def get_eval_by_id(event_list,token_maps,doc_id_list):
 
     df = get_df(event_list,token_maps,doc_id_list)
