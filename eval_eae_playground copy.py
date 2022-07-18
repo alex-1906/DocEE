@@ -1,5 +1,4 @@
 # %%
-from webbrowser import get
 from transformers import AutoTokenizer
 from transformers import AutoConfig, AutoModel, BertConfig
 import torch
@@ -102,7 +101,7 @@ with tqdm.tqdm(dev_loader) as progress_bar:
         
 
 
-        loss ,triples, events = mymodel(token_ids.to(device), input_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids)
+        loss ,triples, events = mymodel(token_ids.to(device), input_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids,text)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -117,10 +116,6 @@ with tqdm.tqdm(dev_loader) as progress_bar:
             event_list.append(events[batch_i])
             token_maps.append(token_map[batch_i])
 #%%
-# ---------- Eval ------------
-
-df = pd.read_json('data/Dump/train_eval.json')
-
 df['pred_events'] = pd.Series(event_list,index=doc_id_list)
 df['t_map'] = pd.Series(token_maps,index=doc_id_list)
 
@@ -134,14 +129,68 @@ for idx, row in df.iterrows():
         continue
     t_map = row.t_map
     for em in row.event_mentions:
-        em['trigger']['start'] = t_map[em['trigger']['start']]+1
+        em['trigger']['start'] = t_map[em['trigger']['start']+1]
         em['trigger']['end'] = t_map[em['trigger']['end']+1]
         for arg in em['arguments']:
-            arg['start'] = t_map[arg['start']]+1
+            arg['start'] = t_map[arg['start']+1]
             arg['end'] = t_map[arg['end']+1]
             for coref in arg['corefs']:
-                coref['start'] = t_map[coref['start']]+1
+                coref['start'] = t_map[coref['start']+1]
                 coref['end'] = t_map[coref['end']+1]
+
+
+#%%
+idf_pred, idf_gold, idf_h_matched, idf_c_matched = 0,0,0,0
+clf_pred, clf_gold, clf_h_matched, clf_c_matched = 0,0,0,0
+matches = []
+coref_matches = []
+for idx, row in df.iterrows(): 
+    events = row['pred_events']
+    gold_events = row['event_mentions']
+
+    for ge,e in zip(gold_events,events):
+        for g_arg in ge['arguments']:
+            for arg in e['arguments']:
+                #----- Head Matches -----
+                if g_arg['entity_id'] == arg['entity_id']:
+                    matches.append((arg['entity_id'],(arg['start'],arg['end']),arg['text'],(g_arg['start'],g_arg['end']),g_arg['text']))
+                    idf_h_matched += 1
+                    idf_c_matched += 1
+                    if g_arg['role'] == arg['role']:
+                        clf_h_matched += 1
+                        clf_c_matched += 1
+                    
+                #----- Coref Matches -----
+                for coref in g_arg['corefs']:
+                    if coref['entity_id'] == arg['entity_id']:
+                        coref_matches.append((arg['entity_id'],(arg['start'],arg['end']),arg['text'],(coref['start'],coref['end']),coref['text']))
+                        idf_c_matched += 1
+                        if g_arg['role'] == arg['role']:
+                            clf_c_matched += 1
+            idf_gold += 1
+        for arg in e['arguments']:
+            idf_pred += 1
+        clf_pred, clf_gold = idf_pred, idf_gold
+
+        #----- Identification P,R,F1 -----
+        idf_h_p, idf_h_r, idf_h_f1 = compute_f1(idf_pred, idf_gold, idf_h_matched)
+        idf_c_p, idf_c_r, idf_c_f1 = compute_f1(idf_pred, idf_gold, idf_c_matched)
+
+        #----- Classification P,R,F1 -----
+        clf_h_p, clf_h_r, clf_h_f1 = compute_f1(idf_pred, idf_gold, clf_h_matched)
+        clf_c_p, clf_c_r, clf_c_f1 = compute_f1(idf_pred, idf_gold, clf_c_matched)
+
+#%%
+print()
+print("*Id Match*")
+print()
+print("***** Identification Report *****")
+print(f"*Head* Matches: {idf_h_matched} Precision: {idf_h_p:.2f} Recall: {idf_h_r:.2f} F1-Score: {idf_h_f1:.2f}")
+print(f"*Coref* Matches: {idf_c_matched} Precision: {idf_c_p:.2f} Recall: {idf_c_r:.2f} F1-Score: {idf_c_f1:.2f}")
+print()
+print("***** Classification Report *****")
+print(f"*Head* Matches: {clf_h_matched} Precision: {clf_h_p:.2f} Recall: {clf_h_r:.2f} F1-Score: {clf_h_f1:.2f}")
+print(f"*Coref* Matches: {clf_c_matched} Precision: {clf_c_p:.2f} Recall: {clf_c_r:.2f} F1-Score: {clf_c_f1:.2f}")
 #%%
 idf_pred, idf_gold, idf_h_matched, idf_c_matched = 0,0,0,0
 clf_pred, clf_gold, clf_h_matched, clf_c_matched = 0,0,0,0
@@ -194,9 +243,56 @@ print("***** Classification Report *****")
 print(f"*Head* Matches: {clf_h_matched} Precision: {clf_h_p:.2f} Recall: {clf_h_r:.2f} F1-Score: {clf_h_f1:.2f}")
 print(f"*Coref* Matches: {clf_c_matched} Precision: {clf_c_p:.2f} Recall: {clf_c_r:.2f} F1-Score: {clf_c_f1:.2f}")
 # %%
-from src.eval_util import get_eval
+if matches == span_matches:
+    print(True)
+else:
+    print(False)
 
-report = get_eval(event_list,token_maps,doc_id_list)
+if coref_matches == coref_span_matches:
+    print(True)
+else:
+    print(False)
+#%%
+coref_span_matches
+#%%
+coref_matches
+#%%
+for em in df.loc['scenario_en_kairos_22'].pred_events:
+    for arg in em['arguments']:
+        if arg['entity_id'] == 'scenario_en_kairos_22-T35':
+            print(arg)
+#%%
+for em in df.loc['scenario_en_kairos_22'].event_mentions:
+    for arg in em['arguments']:
+        if arg['entity_id'] == 'scenario_en_kairos_22-T35':
+            print(arg)
+#%%
+for em in df.loc['scenario_en_kairos_0'].event_mentions:
+    for arg in em['arguments']:
+        if arg['entity_id'] == 'scenario_en_kairos_0-T10':
+            print(arg)
+#%%
+for em in df.loc['scenario_en_kairos_0'].pred_events:
+    for arg in em['arguments']:
+        if arg['entity_id'] == 'scenario_en_kairos_0-T10':
+            print(arg)
+#%%
+#torch.save(mymodel.state_dict(), f"checkpoints/{args.project}_{random_string}.pt")
+
+#mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
+
+
+
+coref_matches == coref_span_matches
 # %%
-report
+for m,sm in zip(coref_matches,coref_span_matches):
+    if m != sm:
+        print(m,sm)
+# %%
+for idx,evt in zip(doc_id_list,event_list):
+    if idx == 'suicide_ied_104':
+        print(text)
+    print(idx)
+# %%
+df.loc['suicide_ied_104'].t_map
 # %%

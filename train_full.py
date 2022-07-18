@@ -114,4 +114,6 @@ table.add_data(e2e_report["Identification"]["Head"]["F1"],
             e2e_report["Identification"]["Head"]["Matches"],
             e2e_report["Identification"]["Coref"]["Matches"])
 wandb.log({"mytable": table})
+
+print(e2e_report)
 #%%

@@ -16,7 +16,7 @@ from transformers import BertConfig, RobertaConfig, DistilBertConfig, XLMRoberta
 from itertools import groupby
 #%%
 class Encoder(nn.Module):
-    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention, at_inference):
+    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention = True):
         super().__init__()
         
         self.config = config
@@ -36,7 +36,6 @@ class Encoder(nn.Module):
         self.ce_loss = nn.CrossEntropyLoss()
 
         self.soft_mention = soft_mention
-        self.at_inference = at_inference
         self.k_mentions = 50
                 
         self.cls_token_id = cls_token_id
@@ -63,15 +62,15 @@ class Encoder(nn.Module):
 
    
         
-    def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text, e2e=False):
+    def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text):
         sequence_output, attention = self.encode(input_ids, attention_mask)
-        argex_loss = torch.zeros((1)).to(sequence_output)
+        loss = torch.zeros((1)).to(sequence_output)
         mention_loss = torch.zeros((1)).to(sequence_output)
         counter = 0
         batch_triples = []
         batch_events = []
-
-        if e2e and not self.training:
+        
+        if not self.training:
             entity_spans = [[] for _ in range(sequence_output.shape[0])]
             entity_spans = [[] for _ in range(sequence_output.shape[0])]
             entity_types = [[] for _ in range(sequence_output.shape[0])]
@@ -80,81 +79,75 @@ class Encoder(nn.Module):
                     
         for batch_i in range(sequence_output.size(0)):
 
-            if e2e:
-                # MENTION DETECTION
+            # MENTION DETECTION
 
-                # ---------- Candidate span embeddings ------------
-                mention_candidates = []
-                candidates_attentions = []
-                for span in candidate_spans[batch_i]:
-                    mention_embedding = torch.mean(sequence_output[batch_i, span[0]:span[1]+1,:], 0)
-                    mention_attention = torch.mean(attention[batch_i,:,span[0]:span[1]+1], 1)
-                    mention_candidates.append(mention_embedding)
-                    candidates_attentions.append(mention_attention)
-                embs = torch.stack(mention_candidates)
-                atts = torch.stack(candidates_attentions)
-                #print(f"attention: {attention.isnan().sum()}")  
-                #print(f"atts_b: {atts[:13].isnan().sum()}")
-                #print(f"atts_e: {atts[13:].isnan().sum()}")
+            # ---------- Candidate span embeddings ------------
+            mention_candidates = []
+            candidates_attentions = []
+            for span in candidate_spans[batch_i]:
+                mention_embedding = torch.mean(sequence_output[batch_i, span[0]:span[1]+1,:], 0)
+                mention_attention = torch.mean(attention[batch_i, span[0]:span[1]+1,:], 0)
+                mention_candidates.append(mention_embedding)
+                candidates_attentions.append(mention_attention)
+            embs = torch.stack(mention_candidates)
+            atts = torch.stack(candidates_attentions)
 
-                # ---------- Span Scoring ------------
-                span_scores = embs.unsqueeze(1) * self.entity_anchor.unsqueeze(0)
-                span_scores = torch.sum(span_scores, dim=-1)
-                span_scores_max, class_for_span = torch.max(span_scores, dim=-1)
-                scores_for_max, max_spans = torch.topk(span_scores_max.view(-1), min(self.k_mentions, embs.size(0)), dim=0)
-                class_for_max_span = class_for_span[max_spans]
+            # ---------- Span Scoring ------------
+            span_scores = embs.unsqueeze(1) * self.entity_anchor.unsqueeze(0)
+            span_scores = torch.sum(span_scores, dim=-1)
+            span_scores_max, class_for_span = torch.max(span_scores, dim=-1)
+            scores_for_max, max_spans = torch.topk(span_scores_max.view(-1), min(self.k_mentions, embs.size(0)), dim=0)
+            class_for_max_span = class_for_span[max_spans]
 
-                if self.training:
-                    # ---------- Mention Loss and adding true spans during training ------------
+            if self.training:
+                # ---------- Mention Loss and adding true spans during training ------------
 
-                    if self.soft_mention:
-                        spans_for_type = {}
+                if self.soft_mention:
+                    spans_for_type = {}
 
-                        for span, rtype in zip(entity_spans[batch_i], entity_types[batch_i]):
-                            if rtype not in spans_for_type.keys():
-                                spans_for_type[rtype] = []
-                            spans_for_type[rtype].append(span[0])
+                    for span, rtype in zip(entity_spans[batch_i], entity_types[batch_i]):
+                        if rtype not in spans_for_type.keys():
+                            spans_for_type[rtype] = []
+                        spans_for_type[rtype].append(span[0])
 
-                        anchors, positives, negatives = [], [], []
+                    anchors, positives, negatives = [], [], []
 
-                        for rtype, positive_examples in spans_for_type.items():
+                    for rtype, positive_examples in spans_for_type.items():
 
-                            # add negative examples from entity spans
-                            for pos in positive_examples:
-                                for rtype2, negative_examples in spans_for_type.items():
-                                    if rtype2 == rtype:
-                                        continue
-                                    for neg in negative_examples:
-                                        anchors.append(self.entity_anchor[self.mention_types.index(rtype),:])
-                                        positives.append(torch.mean(sequence_output[batch_i, pos[0]:pos[1]+1,:], 0))
-                                        negatives.append(torch.mean(sequence_output[batch_i, neg[0]:neg[1]+1,:], 0))
-
-                            # add negative examples from candidate spans
-                            for pos in positive_examples:
-                                for neg in [x for x in candidate_spans[batch_i] if x not in entity_spans[batch_i]]:
+                        # add negative examples from entity spans
+                        for pos in positive_examples:
+                            for rtype2, negative_examples in spans_for_type.items():
+                                if rtype2 == rtype:
+                                    continue
+                                for neg in negative_examples:
                                     anchors.append(self.entity_anchor[self.mention_types.index(rtype),:])
                                     positives.append(torch.mean(sequence_output[batch_i, pos[0]:pos[1]+1,:], 0))
                                     negatives.append(torch.mean(sequence_output[batch_i, neg[0]:neg[1]+1,:], 0))
 
+                        # add negative examples from candidate spans
+                        for pos in positive_examples:
+                            for neg in [x for x in candidate_spans[batch_i] if x not in entity_spans[batch_i]]:
+                                anchors.append(self.entity_anchor[self.mention_types.index(rtype),:])
+                                positives.append(torch.mean(sequence_output[batch_i, pos[0]:pos[1]+1,:], 0))
+                                negatives.append(torch.mean(sequence_output[batch_i, neg[0]:neg[1]+1,:], 0))
 
-                        mention_loss += self.triplet_loss(torch.stack(anchors), torch.stack(positives), torch.stack(negatives))
 
-                    else:
+                    mention_loss += self.triplet_loss(torch.stack(anchors), torch.stack(positives), torch.stack(negatives))
 
-                        mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long
-                        
-                        )
-                        for idx,c in enumerate(candidate_spans[batch_i]):
-                            for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
-                                if [c] == ent:
-                                    mention_targets[idx] = self.mention_types.index(t)
-                        mention_loss += self.ce_loss(span_scores,mention_targets)
-                        print(f"mention_loss: {mention_loss}")
+                else:
+                    #one-hot encoding for annotated mention labels 
+                    mention_labels = torch.zeros(len(candidate_spans[batch_i]),len(self.mention_types))
+                    for idx,c in enumerate(candidate_spans[batch_i]):
+                        for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
+                            if [c] == ent:
+                                mention_labels[idx][self.mention_types.index(t)] = 1
+                    mention_loss += self.ce_loss(mention_labels, span_scores)
+
 
 
             # ARGUMENT ROLE LABELING
             
-            if not e2e:
+            if self.training:
                 # ---------- Pooling Entity Embeddings and Attentions ------------
                 entity_embeddings = []
                 entity_attentions = []
@@ -173,11 +166,10 @@ class Encoder(nn.Module):
 
                 for c in class_for_max_span:
                     entity_types[batch_i].append(self.mention_types[c])
-                    entity_ids[batch_i].append('unk')
                 for s in max_spans:
                     entity_spans[batch_i].append([candidate_spans[batch_i][s]])
-            #print(f"entity_attentions: {entity_attentions}")
-            #print(f"entity_embeddings: {entity_embeddings}")
+
+                
             # ---------- Localized Context Pooling ------------
             relation_candidates = []
             localized_context = []
@@ -209,7 +201,7 @@ class Encoder(nn.Module):
             
             triggers = list(set(triggers))
             # ---------- Pairwise Comparisons and Predictions ------------
-            #print(f"embs: {embs}")
+
             scores = torch.matmul(embs,self.relation_embeddings.T)
             nota_scores = torch.matmul(embs,self.nota_embeddings.T)
             nota_scores = nota_scores.max(dim=-1,keepdim=True)[0]
@@ -226,34 +218,22 @@ class Encoder(nn.Module):
                         onehot[relation_labels[batch_i][r]] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
-                #print(f"scores: {scores}")
-                #print(f"targets: {targets}")
-                argex_loss += self.at_loss(scores,targets)
-                #print(f"argex_loss: {argex_loss}")
+                loss += self.at_loss(scores,targets)
                 counter += 1
             
             # ---------- Inference ------------
-            if self.at_inference:
-                pred_classes = self.at_loss.get_label(scores)
-                triples = []
-                for idx,pair in enumerate(relation_candidates):
-                    preds = pred_classes[idx]
-                    preds = [i[0] for i in preds.nonzero().tolist()]
-                    #seltener Fall, dass ein Pair mehrere Labels hat
-                    for p in preds:
-                        triple = {
-                            pair:self.relation_types[p]
-                        }
-                        triples.append(triple)
-                batch_triples.append(triples)
-            else:
-                triples = []
-                for idx,pair in enumerate(relation_candidates):
+            pred_classes = self.at_loss.get_label(scores)
+            triples = []
+            for idx,pair in enumerate(relation_candidates):
+                preds = pred_classes[idx]
+                preds = [i[0] for i in preds.nonzero().tolist()]
+                #seltener Fall, dass ein Pair mehrere Labels hat
+                for p in preds:
                     triple = {
-                        pair:self.relation_types[predictions[idx]]
+                        pair:self.relation_types[p]
                     }
                     triples.append(triple)
-                batch_triples.append(triples)
+            batch_triples.append(triples)
                 
             events = []
             for t,v in groupby(triples,key=lambda x:next(iter(x.keys()))[0]):
@@ -261,7 +241,7 @@ class Encoder(nn.Module):
                 t_start = entity_spans[batch_i][t][0][0]
                 t_end = entity_spans[batch_i][t][0][1]
                 event_type = t_word.split(".TRIGGER")[0]
-                event_id = entity_ids[batch_i][t]
+                event_id = 'unk'
 
                 arguments = []
                 for d in v:
@@ -273,7 +253,7 @@ class Encoder(nn.Module):
                         a_start = entity_spans[batch_i][o][0][0]
                         a_end = entity_spans[batch_i][o][0][1]
                         argument = {
-                            'entity_id':entity_ids[batch_i][o],
+                            'entity_id':'unk',
                             'role':r,
                             'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][a_start:a_end]).lstrip(),
                             'start':a_start,
@@ -281,14 +261,14 @@ class Encoder(nn.Module):
                         }
                         arguments.append(argument)
                 event = {
-                    'id':entity_ids[batch_i][t],
+                    'id': 'unk',
                     'event_type':event_type,
-                    'trigger':{'start':t_start ,'end':t_end, 'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][t_start:t_end]).lstrip()},
+                    'trigger': {'start':t_start ,'end':t_end, 'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][t_start:t_end]).lstrip()},
                     'arguments':arguments
                 }
                 events.append(event)
             batch_events.append(events)
         if(counter == 0):
-                return mention_loss,argex_loss,torch.autograd.Variable(-argex_loss,requires_grad=True), batch_events
+                return torch.autograd.Variable(loss,requires_grad=True), batch_triples, batch_events
         else:
-            return mention_loss,argex_loss,(mention_loss+argex_loss)/counter, batch_events
+            return (mention_loss+loss)/counter, batch_triples, batch_events
