@@ -67,7 +67,7 @@ class Encoder(nn.Module):
         sequence_output, attention = self.encode(input_ids, attention_mask)
         argex_loss = torch.zeros((1)).to(sequence_output)
         mention_loss = torch.zeros((1)).to(sequence_output)
-        print("device: ", sequence_output.device)
+        #print("device: ", sequence_output.device)
         counter = 0
         batch_triples = []
         batch_events = []
@@ -142,9 +142,14 @@ class Encoder(nn.Module):
 
                     else:
 
-                        mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long
+                        mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long, device = self.model.device
                         
                         )
+                        span_scores.to(self.model.device)
+                        #mention_targets.to('cuda')
+                        #print(f"span_scores on {span_scores.get_device()}")
+                        #print(f"mention_targets on {mention_targets.get_device()}")
+                        #print(f"model on {self.model.device}")
                         for idx,c in enumerate(candidate_spans[batch_i]):
                             for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
                                 if [c] == ent:
@@ -184,6 +189,7 @@ class Encoder(nn.Module):
             localized_context = []
             concat_embs = []
             triggers = []
+            #print(f"entity_attentions contains nans: {entity_attentions.isnan().any()}")
             for s in range(entity_embeddings.shape[0]):
                 if entity_types[batch_i][s].split(".")[-1] != "TRIGGER":
                     continue
@@ -196,7 +202,8 @@ class Encoder(nn.Module):
                         A_o = entity_attentions[o,:,:]
                         A = torch.mul(A_o,A_s)
                         q = torch.sum(A,0)
-                        a = q / q.sum()
+                        
+                        a = q / (q.sum() + 1e-30)
                         H_T = sequence_output[batch_i].T
                         c = torch.matmul(H_T,a)
                         localized_context.append(c)
@@ -206,14 +213,19 @@ class Encoder(nn.Module):
             if(len(localized_context) == 0):
                 continue
             localized_context = torch.stack(localized_context)
+            #print(f"localized_context contains nans: {localized_context.isnan().any()}")
             embs = torch.stack(concat_embs)
             
             triggers = list(set(triggers))
             # ---------- Pairwise Comparisons and Predictions ------------
             #print(f"embs: {embs}")
+            #print(f"self.relation_embeddings contains nans: {self.relation_embeddings.isnan().any()}")
+            #print(f"embs contains nans: {embs.isnan().any()}")
             scores = torch.matmul(embs,self.relation_embeddings.T)
             nota_scores = torch.matmul(embs,self.nota_embeddings.T)
             nota_scores = nota_scores.max(dim=-1,keepdim=True)[0]
+            #print(f"early scores contains nans: {scores.isnan().any()}")
+            #print(f"nota scores contains nans: {scores.isnan().any()}")
             scores = torch.cat((nota_scores, scores), dim=-1)
             predictions = torch.argmax(scores, dim=-1, keepdim=False)
             #Achtung: NOTA wird an 0. Stelle gesetzt
@@ -229,6 +241,11 @@ class Encoder(nn.Module):
                 targets = torch.stack(targets).to(self.model.device)
                 #print(f"scores: {scores}")
                 #print(f"targets: {targets}")
+                zeros = scores.numel() - scores.nonzero().size(0)
+                scores = scores.clamp(min=1e-30)
+                print(f"scores contain zeros: {zeros}")
+                
+                #print(f"scores contains nans: {scores.isnan().any()}")
                 argex_loss += self.at_loss(scores,targets)
                 #print(f"argex_loss: {argex_loss}")
                 counter += 1
@@ -290,6 +307,6 @@ class Encoder(nn.Module):
                 events.append(event)
             batch_events.append(events)
         if(counter == 0):
-                return mention_loss,argex_loss,torch.autograd.Variable(-argex_loss,requires_grad=True), batch_events
+                return mention_loss,argex_loss,torch.autograd.Variable(-argex_loss,requires_grad=True), []
         else:
             return mention_loss,argex_loss,(mention_loss+argex_loss)/counter, batch_events
