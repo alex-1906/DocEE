@@ -2,7 +2,8 @@ from src.util import safe_div, compute_f1
 import pandas as pd
 
 def get_df(event_list,token_maps,doc_id_list):
-    df = pd.read_json('data/Dump/train_eval.json')
+    #df = pd.read_json('data/Dump/train_eval.json')
+    df = pd.read_json('data/WikiEvents/preprocessed/full_eval.json')
 
     df['pred_events'] = pd.Series(event_list,index=doc_id_list)
     df['t_map'] = pd.Series(token_maps,index=doc_id_list)
