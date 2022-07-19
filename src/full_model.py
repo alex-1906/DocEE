@@ -67,6 +67,7 @@ class Encoder(nn.Module):
         sequence_output, attention = self.encode(input_ids, attention_mask)
         argex_loss = torch.zeros((1)).to(sequence_output)
         mention_loss = torch.zeros((1)).to(sequence_output)
+        print("device: ", sequence_output.device)
         counter = 0
         batch_triples = []
         batch_events = []

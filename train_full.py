@@ -11,6 +11,7 @@ from transformers.optimization import AdamW
 from src.data import collate_fn, parse_file
 from src.eval_util import get_eval, get_eval_by_id
 from src.full_model import Encoder
+from src.util import set_seed
 import wandb
 
 #%%
@@ -22,11 +23,16 @@ wandb.config = {
   "batch_size": 2,
   "shuffle": False
 }
+torch.use_deterministic_algorithms(True)
+g = torch.Generator()
+g.manual_seed(42)
+set_seed(42)
 
 # %%
 #########################
 ## Model Configuration ##
 #########################
+torch.use_deterministic_algorithms(True)
 language_model = 'bert-base-uncased'
 lm_config = AutoConfig.from_pretrained(
     language_model,

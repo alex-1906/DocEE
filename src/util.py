@@ -96,3 +96,11 @@ def compute_f1(predicted, gold, matched):
     recall = safe_div(matched, gold)
     f1 = safe_div(2 * precision * recall, precision + recall)
     return precision, recall, f1
+
+
+def set_seed(seed, n_gpu=1):
+    """Source: https://github.com/wzhouad/ATLOP/blob/main/utils.py"""
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if n_gpu > 0 and torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
