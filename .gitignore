@@ -1,6 +1,5 @@
-checkpoints/
 .DS_Store
-
+Old/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

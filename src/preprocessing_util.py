@@ -3,7 +3,7 @@ import pandas as pd
 import json
 from nltk.tokenize import sent_tokenize, word_tokenize
 from collections import defaultdict
-from docred_util import to_docred
+from src.docred_util import to_docred
 #%%
 #------- Load Raw WikiEvent Files --------#
 def preprocess_we(coref = False):
@@ -160,11 +160,13 @@ def get_feasible_roles_file():
     row3.name = 'Contact.ThreatenCoerce.Broadcast'
     row4.name = 'Contact.RequestCommand.Correspondence'
     row5.name = 'Contact.ThreatenCoerce.Correspondence'
-    kairos = pd.concat([kairos,row1,row2,row3,row4,row5])
+    kairos = kairos.append([row1,row2,row3,row4,row5])
 
+    kairos.loc["Contact.ThreatenCoerce.Correspondence"]
     feasible_roles = defaultdict(dict)
     for idx,row in kairos.iterrows():
         feasible_roles[idx] = row.roles
+    feasible_roles["Contact.ThreatenCoerce.Correspondence"]
     with open("data/Ontology/feasible_roles.json", "w") as f:
         json.dump(feasible_roles,f)
 #%%
