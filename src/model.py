@@ -239,8 +239,8 @@ class Encoder(nn.Module):
                         onehot[relation_labels[batch_i][r]] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
-                #print(f"scores: {scores}")
-                #print(f"targets: {targets}")
+                print(f"scores: {scores.shape}")
+                print(f"targets: {targets.shape}")
                 zeros = scores.numel() - scores.nonzero().size(0)
                 scores = scores.clamp(min=1e-30)
                 print(f"scores contain zeros: {zeros}")

@@ -119,7 +119,7 @@ def get_roles_file(shared=True):
         for r in row.roles:
             roles.append(r)
     roles_set = list(set(roles))
-    #roles_set.insert(0,"NOTA")
+    roles_set.insert(0,"NOTA")
     if shared:
         path = "data/Ontology/roles_shared.json"
     else:
