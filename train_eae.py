@@ -186,6 +186,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
                     except:
                         eae_event_list.append([])
         eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
+        print("test1")
 
         compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
         print(compound_f1)
