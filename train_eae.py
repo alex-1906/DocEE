@@ -188,11 +188,12 @@ for i in tqdm.tqdm(range(args.num_epochs)):
 
         compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
         if compound_f1 > best_compound_f1:
+            print("better compound f1, saving model")
             best_compound_f1 = compound_f1
-            wandb.log({"eae_IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
-            wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
-            wandb.log({"eae_CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
-            wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
+            wandb.log({"IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
+            wandb.log({"IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
+            wandb.log({"CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
+            wandb.log({"CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
             torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
 '''    
 1. Habe nicht nur ein F1 Maß, sondern mehrere, passt das wenn es so einzeln geloggt wird?
