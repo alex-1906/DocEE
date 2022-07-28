@@ -136,9 +136,6 @@ best_compound_f1 = 0.0
 step_global = -1
 for i in tqdm.tqdm(range(args.num_epochs)):
     losses,argex_losses = [], []
-    eae_event_list = []
-    doc_id_list = []
-    token_maps = []
     mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
@@ -170,7 +167,11 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             del loss
             
     mymodel.eval()
+    eae_event_list = []
+    doc_id_list = []
+    token_maps = []
     with tqdm.tqdm(dev_loader) as progress_bar:
+        
         for sample in progress_bar:
 
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
@@ -187,13 +188,14 @@ for i in tqdm.tqdm(range(args.num_epochs)):
         eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
 
         compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
+        print(compound_f1)
         if compound_f1 > best_compound_f1:
             print("better compound f1, saving model")
             best_compound_f1 = compound_f1
-            wandb.log({"IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
-            wandb.log({"IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
-            wandb.log({"CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
-            wandb.log({"CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
+            wandb.log({"IDF_H_F1":eae_report["Identification"]["Head"]["F1"]}, step=step_global)
+            wandb.log({"IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]}, step=step_global)
+            wandb.log({"CLF_H_F1":eae_report["Classification"]["Head"]["F1"]}, step=step_global)
+            wandb.log({"CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]}, step=step_global)
             torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
 '''    
 1. Habe nicht nur ein F1 Maß, sondern mehrere, passt das wenn es so einzeln geloggt wird?
