@@ -168,8 +168,8 @@ for epoch in range(args.epochs):
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
     wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] })      
-    wandb.log({"eae_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
-    wandb.log({"eae_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] }) 
+    wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] })
+    wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }) 
         
         
 
