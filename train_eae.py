@@ -119,7 +119,7 @@ mymodel = Encoder(lm_config,
                 at_inference=args.at_inference,
                  )
 optimizer = AdamW(mymodel.parameters(), lr=args.learning_rate, eps=1e-6)
-scaler = GradScaler()
+#scaler = GradScaler()
 lr_scheduler = get_linear_schedule_with_warmup(optimizer, int(args.warmup_epochs * len(train_loader)), int(args.num_epochs*len(train_loader)))
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -146,35 +146,16 @@ for epoch in range(args.num_epochs):
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             step_global += 1*len(doc_ids)
 
-            if device == 'cuda':
-                with autocast:
-                    mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-                mention_losses.append(mention_loss.item())
-                #argex_losses.append(argex_loss.item())
-                #losses.append(loss.item())
+            mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            mention_losses.append(mention_loss.item())
+            argex_losses.append(argex_loss.item())
+            losses.append(loss.item())
+            loss.backward()
+            nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
+            optimizer.step()
 
-
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                #loss.backward()
-                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
-                scaler.step(optimizer)
-                #optimizer.step()
-                scaler.update()
-                lr_scheduler.step()
-                mymodel.zero_grad()
-                del loss#mention_loss,argex_loss,loss,eae_events
-            else:
-                mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-                mention_losses.append(mention_loss.item())
-                argex_losses.append(argex_loss.item())
-                losses.append(loss.item())
-                loss.backward()
-                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
-                optimizer.step()
-                scaler.update()
-                mymodel.zero_grad()
-                del loss#mention_loss,argex_loss,loss,eae_events
+            mymodel.zero_grad()
+            del loss#mention_loss,argex_loss,loss,eae_events
 
 
             progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
@@ -182,6 +163,8 @@ for epoch in range(args.num_epochs):
             wandb.log({"eae_mention_loss": mention_loss.item()}, step=step_global)
             wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
             wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
+
+            
             
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
