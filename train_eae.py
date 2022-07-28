@@ -134,7 +134,7 @@ print("Training on {}".format(args.train_set_size))
 #best_IDF_H_F1, best_IDF_C_F1, best_CLF_H_F1, best_CLF_C_F1 = 0.0, 0.0, 0.0, 0.0
 best_compound_f1 = 0.0
 step_global = -1
-for i in tqdm(range(args.num_epochs)):
+for i in tqdm.tqdm(range(args.num_epochs)):
     losses,argex_losses = [], []
     eae_event_list = []
     doc_id_list = []
