@@ -135,7 +135,7 @@ print("Training on {}".format(args.train_set_size))
 best_compound_f1 = 0.0
 step_global = -1
 for epoch in range(args.num_epochs):
-    losses,mention_losses,argex_losses = [], [], []
+    losses,argex_losses = [], []
     eae_event_list = []
     doc_id_list = []
     token_maps = []
@@ -147,8 +147,8 @@ for epoch in range(args.num_epochs):
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             step_global += 1*len(doc_ids)
 
-            mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-            mention_losses.append(mention_loss.item())
+            _,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+
             argex_losses.append(argex_loss.item())
             losses.append(loss.item())
             loss.backward()
@@ -160,14 +160,14 @@ for epoch in range(args.num_epochs):
 
 
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
-            wandb.log({"eae_train_loss": sum(losses)/len(losses)}, step=step_global)
-            wandb.log({"eae_mention_loss": sum(mention_losses)/len(mention_losses)}, step=step_global)
+            wandb.log({"eae_loss": sum(losses)/len(losses)}, step=step_global)
             wandb.log({"eae_argex_loss": sum(argex_losses)/len(argex_losses)}, step=step_global)
             wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
 
             
             
     mymodel.eval()
+    print("Evaluating on dev")
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
 
