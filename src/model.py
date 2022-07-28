@@ -106,7 +106,7 @@ class Encoder(nn.Module):
                 class_for_max_span = class_for_span[max_spans]
 
                 if self.training:
-                    # ---------- Mention Loss and adding true spans during training ------------
+                    # ---------- Mention Loss ------------
 
                     if self.soft_mention:
                         spans_for_type = {}
@@ -146,16 +146,16 @@ class Encoder(nn.Module):
                         
                         )
                         span_scores.to(self.model.device)
-                        #mention_targets.to('cuda')
-                        #print(f"span_scores on {span_scores.get_device()}")
-                        #print(f"mention_targets on {mention_targets.get_device()}")
-                        #print(f"model on {self.model.device}")
+
+
+                        #Macht das so Sinn, dass das label überall nullen hat, wenn es kein entity span ist?
+                        #Sanity check with labels
                         for idx,c in enumerate(candidate_spans[batch_i]):
                             for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
                                 if [c] == ent:
                                     mention_targets[idx] = self.mention_types.index(t)
                         mention_loss += self.ce_loss(span_scores,mention_targets)
-                        print(f"mention_loss: {mention_loss}")
+                        #print(f"mention_loss: {mention_loss}")
 
 
             # ARGUMENT ROLE LABELING
@@ -239,11 +239,10 @@ class Encoder(nn.Module):
                         onehot[relation_labels[batch_i][r]] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
-                print(f"scores: {scores.shape}")
-                print(f"targets: {targets.shape}")
+
                 zeros = scores.numel() - scores.nonzero().size(0)
                 scores = scores.clamp(min=1e-30)
-                print(f"scores contain zeros: {zeros}")
+                #print(f"scores contain zeros: {zeros}")
                 
                 #print(f"scores contains nans: {scores.isnan().any()}")
                 argex_loss += self.at_loss(scores,targets)
