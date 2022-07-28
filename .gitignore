@@ -1,7 +1,5 @@
+Old/
 checkpoints/
-.DS_Store
-
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -96,13 +94,11 @@ ipython_config.py
 #Pipfile.lock
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
-checkpoints
 
 __pypackages__/
 data/DocRed
 data/Dump
 
-.DS_Store
 venv/
 __pycache__/
 wandb/

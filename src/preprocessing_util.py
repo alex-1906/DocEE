@@ -162,9 +162,11 @@ def get_feasible_roles_file():
     row5.name = 'Contact.ThreatenCoerce.Correspondence'
     kairos = kairos.append([row1,row2,row3,row4,row5])
 
+    kairos.loc["Contact.ThreatenCoerce.Correspondence"]
     feasible_roles = defaultdict(dict)
     for idx,row in kairos.iterrows():
         feasible_roles[idx] = row.roles
+    feasible_roles["Contact.ThreatenCoerce.Correspondence"]
     with open("data/Ontology/feasible_roles.json", "w") as f:
         json.dump(feasible_roles,f)
 #%%
