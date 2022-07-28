@@ -159,7 +159,7 @@ for epoch in range(args.num_epochs):
             del loss#mention_loss,argex_loss,loss,eae_events
 
 
-            progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
+            progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
             wandb.log({"eae_train_loss": sum(losses)/len(losses)}, step=step_global)
             wandb.log({"eae_mention_loss": sum(mention_losses)/len(mention_losses)}, step=step_global)
             wandb.log({"eae_argex_loss": sum(argex_losses)/len(argex_losses)}, step=step_global)
