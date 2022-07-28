@@ -31,6 +31,8 @@ def preprocess_we(coref = False):
             if not coref:
 
                 if path == train_path:
+                    #drop longest doc 'backpack_ied_0
+                    df.drop(index=127,inplace=True)
                     df['event_len'] = df['event_mentions'].apply(lambda x: len(x))
                     df.sort_values(by='event_len',inplace=True)
                     df_small = df[:18]
