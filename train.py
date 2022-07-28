@@ -1,6 +1,7 @@
 #%%
 import argparse
-from tkinter import TRUE
+
+
 import pandas as pd
 import json
 import os
@@ -50,6 +51,7 @@ wandb.config.identifier = random_string
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 torch.use_deterministic_algorithms(True)
+torch.cuda.empty_cache()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 g = torch.Generator()
