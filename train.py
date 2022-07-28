@@ -1,5 +1,6 @@
 #%%
 import argparse
+from tkinter import TRUE
 import pandas as pd
 import json
 import os
@@ -81,12 +82,12 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_small.json",
+    parse_file("data/WikiEvents/preprocessed/train_medium.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
     batch_size=args.batch_size,
-    shuffle=args.shuffle,
+    shuffle=TRUE,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
     parse_file("data/WikiEvents/preprocessed/dev.json",
@@ -94,7 +95,7 @@ dev_loader = DataLoader(
     relation_types=relation_types,
     max_candidate_length=max_n),
     batch_size=2,
-    shuffle=args.shuffle,
+    shuffle=True,
     collate_fn=collate_fn)
 
 
