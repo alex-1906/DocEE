@@ -120,64 +120,65 @@ mymodel.to(device)
 # %%
 # ---------- Train Loop -----------#
 
-
-for epoch in range(args.epochs):
-    losses = []
-    eae_event_list,e2e_event_list = [],[]
+#best_IDF_H_F1, best_IDF_C_F1, best_CLF_H_F1, best_CLF_C_F1 = 0.0, 0.0, 0.0, 0.0
+best_compound_f1 = 0.0
+step_global = -1
+for epoch in range(args.num_epochs):
+    losses,mention_losses,argex_losses = [], [], []
+    eae_event_list = []
     doc_id_list = []
     token_maps = []
     mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
             #with torch.autograd.detect_anomaly():
+            
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            print(doc_ids)
-            # --------- E2E Task  ------------#
-            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+            step_global += 1*len(doc_ids)
 
-
-            progress_bar.set_postfix({"L":f"{loss.item():.2f}"})
-            wandb.log({"e2e_train_loss": loss.item()})
-            wandb.log({"e2e_mention_loss": mention_loss.item()})
-            wandb.log({"e2e_argex_loss": argex_loss.item()})
-
+            mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            mention_losses.append(mention_loss.item())
+            argex_losses.append(argex_loss.item())
             losses.append(loss.item())
             loss.backward()
             nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
             optimizer.step()
 
-            #optimizer.zero_grad()
             mymodel.zero_grad()
-            del mention_loss,argex_loss,loss,e2e_events
+            del loss#mention_loss,argex_loss,loss,eae_events
+
+
+            progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
+            wandb.log({"eae_train_loss": losses.mean()}, step=step_global)
+            wandb.log({"eae_mention_loss": mention_loss.item()}, step=step_global)
+            wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
+            wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
+
+            
+            
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
-            
+
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            #print(doc_ids)
-            # --------- E2E Task  ------------#
+
             with torch.no_grad():
-                _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
-                _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+                _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
                 for batch_i in range(input_ids.shape[0]):
                     doc_id_list.append(doc_ids[batch_i])
                     token_maps.append(token_map[batch_i])
                     try:
-                        e2e_event_list.append(e2e_events[batch_i])
                         eae_event_list.append(eae_events[batch_i])
                     except:
-                        e2e_event_list.append([])
                         eae_event_list.append([])
-    e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
-    wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
-    wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] })      
-    wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] })
-    wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }) 
-        
-        
 
-# %%
-torch.save(mymodel.state_dict(), f"checkpoints/{args.checkpoint}.pt")
+    compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
+    if compound_f1 > best_compound_f1:
+        wandb.log({"eae_IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
+        wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
+        wandb.log({"eae_CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
+        wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
+        torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
 
 #%%
