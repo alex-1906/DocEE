@@ -27,6 +27,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--project", type=str, default="test-e2e-gpu", help="project name for wandb")
 parser.add_argument("--checkpoint", type=str, default=None, help="checkpoint path")
 
+parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
 parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
 parser.add_argument("--k_mentions", type=int, default=50, help="number of mention spans to perform relation extraction on")
@@ -73,7 +74,7 @@ tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
 with open("data/Ontology/roles_shared.json") as f:
     relation_types = json.load(f)
-with open("data/Ontology/mention_types.json") as f:
+with open("data/Ontology/trigger_entity_types.json") as f:
     mention_types = json.load(f)
 with open("data/Ontology/feasible_roles.json") as f:
     feasible_roles = json.load(f)
@@ -117,13 +118,14 @@ mymodel.to(device)
 
 # %%
 # ---------- Train Loop -----------#
-mymodel.train()
+
 
 for epoch in range(args.epochs):
     losses = []
     eae_event_list,e2e_event_list = [],[]
     doc_id_list = []
     token_maps = []
+    mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
             #with torch.autograd.detect_anomaly():
@@ -146,11 +148,12 @@ for epoch in range(args.epochs):
             #optimizer.zero_grad()
             mymodel.zero_grad()
             del loss
+    mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
             
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            print(doc_ids)
+            #print(doc_ids)
             # --------- E2E Task  ------------#
             with torch.no_grad():
                 _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)

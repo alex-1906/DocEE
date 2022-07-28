@@ -41,6 +41,7 @@ def preprocess_we(coref = False):
 
                     df_small.to_json(f"data/WikiEvents/preprocessed/train_small.json",orient="records")
                     df_medium.to_json(f"data/WikiEvents/preprocessed/train_medium.json",orient="records")
+                    df.to_json(f"data/WikiEvents/preprocessed/train_large.json",orient="records")
 
                 df = to_docred(df)
                 df.to_json(f"data/WikiEvents/preprocessed/{path}",orient="records")
