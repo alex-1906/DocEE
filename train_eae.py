@@ -140,7 +140,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
     doc_id_list = []
     token_maps = []
     mymodel.train()
-    with tqdm.tqdm(train_loader,desc=f"Training on {args.train_set_size}") as progress_bar:
+    with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
             #with torch.autograd.detect_anomaly():
             
@@ -170,7 +170,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             del loss
             
     mymodel.eval()
-    with tqdm.tqdm(dev_loader,desc=f"Evaluation on dev") as progress_bar:
+    with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
 
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
@@ -184,15 +184,16 @@ for i in tqdm.tqdm(range(args.num_epochs)):
                         eae_event_list.append(eae_events[batch_i])
                     except:
                         eae_event_list.append([])
-    eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
+        eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
 
-    compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
-    if compound_f1 > best_compound_f1:
-        wandb.log({"eae_IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
-        wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
-        wandb.log({"eae_CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
-        wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
-        torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
+        compound_f1 = eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"]
+        if compound_f1 > best_compound_f1:
+            best_compound_f1 = compound_f1
+            wandb.log({"eae_IDF_H_F1":eae_report["Identification"]["Head"]["F1"]})
+            wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"]})
+            wandb.log({"eae_CLF_H_F1":eae_report["Classification"]["Head"]["F1"]})
+            wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"]})
+            torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
 '''    
 1. Habe nicht nur ein F1 Maß, sondern mehrere, passt das wenn es so einzeln geloggt wird?
 So habe ich am Ende evtl. ein Modell gespeichert, dass einen bestimmten F1 Score maximiert der mich aber weniger interessiert.
