@@ -156,7 +156,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             optimizer.step()
 
             mymodel.zero_grad()
-            del loss#mention_loss,argex_loss,loss,eae_events
+            #del loss#mention_loss,argex_loss,loss,eae_events
 
 
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
@@ -166,7 +166,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
             #wandb.log({"adapt_learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
 
-            
+            del loss
             
     mymodel.eval()
     with tqdm.tqdm(dev_loader,desc=f"Evaluation on dev") as progress_bar:
