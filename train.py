@@ -74,14 +74,14 @@ tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
 with open("data/Ontology/roles_shared.json") as f:
     relation_types = json.load(f)
-with open("data/Ontology/trigger_entity_types.json") as f:
+with open("data/Ontology/mention_types.json") as f:
     mention_types = json.load(f)
 with open("data/Ontology/feasible_roles.json") as f:
     feasible_roles = json.load(f)
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_medium.json",
+    parse_file("data/WikiEvents/preprocessed/train_small.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
