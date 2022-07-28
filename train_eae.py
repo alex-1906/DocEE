@@ -129,7 +129,7 @@ mymodel.to(device)
 
 # %%
 # ---------- Train Loop -----------#
-print("Training on {}".format(args.train_set_size))
+
 
 #best_IDF_H_F1, best_IDF_C_F1, best_CLF_H_F1, best_CLF_C_F1 = 0.0, 0.0, 0.0, 0.0
 best_compound_f1 = 0.0
@@ -140,7 +140,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
     doc_id_list = []
     token_maps = []
     mymodel.train()
-    with tqdm.tqdm(train_loader) as progress_bar:
+    with tqdm.tqdm(train_loader,desc=f"Training on {args.train_set_size}") as progress_bar:
         for sample in progress_bar:
             #with torch.autograd.detect_anomaly():
             
@@ -167,8 +167,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             
             
     mymodel.eval()
-    print("Evaluation on dev")
-    with tqdm.tqdm(dev_loader) as progress_bar:
+    with tqdm.tqdm(dev_loader,desc=f"Evaluation on dev") as progress_bar:
         for sample in progress_bar:
 
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
