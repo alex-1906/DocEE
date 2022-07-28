@@ -308,4 +308,4 @@ class Encoder(nn.Module):
         if(counter == 0):
                 return mention_loss,argex_loss,torch.autograd.Variable(-argex_loss,requires_grad=True), []
         else:
-            return mention_loss,argex_loss,(mention_loss+argex_loss)/counter, batch_events
+            return mention_loss,argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events
