@@ -3,7 +3,7 @@ import pandas as pd
 import json
 from nltk.tokenize import sent_tokenize, word_tokenize
 from collections import defaultdict
-from docred_util import to_docred
+from src.docred_util import to_docred
 #%%
 #------- Load Raw WikiEvent Files --------#
 def preprocess_we(coref = False):
@@ -118,7 +118,7 @@ def get_roles_file(shared=True):
         for r in row.roles:
             roles.append(r)
     roles_set = list(set(roles))
-    roles_set.insert(0,"NOTA")
+    #roles_set.insert(0,"NOTA")
     if shared:
         path = "data/Ontology/roles_shared.json"
     else:
@@ -160,7 +160,7 @@ def get_feasible_roles_file():
     row3.name = 'Contact.ThreatenCoerce.Broadcast'
     row4.name = 'Contact.RequestCommand.Correspondence'
     row5.name = 'Contact.ThreatenCoerce.Correspondence'
-    kairos = pd.concat([kairos,row1,row2,row3,row4,row5])
+    kairos = kairos.append([row1,row2,row3,row4,row5])
 
     feasible_roles = defaultdict(dict)
     for idx,row in kairos.iterrows():

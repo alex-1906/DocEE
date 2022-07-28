@@ -12,7 +12,7 @@ from transformers import (AutoConfig, AutoModel, AutoTokenizer, BertConfig,
 from transformers.optimization import AdamW
 from src.data import collate_fn, parse_file
 from src.eval_util import get_eval, get_eval_by_id
-from src.full_model import Encoder
+from src.model import Encoder
 from src.util import set_seed
 import wandb
 import argparse
@@ -71,9 +71,9 @@ lm_model = AutoModel.from_pretrained(
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
 
-with open("data/Ontology/roles.json") as f:
+with open("data/Ontology/roles_shared.json") as f:
     relation_types = json.load(f)
-with open("data/Ontology/trigger_entity_types.json") as f:
+with open("data/Ontology/mention_types.json") as f:
     mention_types = json.load(f)
 with open("data/Ontology/feasible_roles.json") as f:
     feasible_roles = json.load(f)
