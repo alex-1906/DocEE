@@ -129,6 +129,7 @@ mymodel.to(device)
 
 # %%
 # ---------- Train Loop -----------#
+print("Training on {}".format(args.train_set_size))
 
 #best_IDF_H_F1, best_IDF_C_F1, best_CLF_H_F1, best_CLF_C_F1 = 0.0, 0.0, 0.0, 0.0
 best_compound_f1 = 0.0
@@ -159,9 +160,9 @@ for epoch in range(args.num_epochs):
 
 
             progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
-            wandb.log({"eae_train_loss": losses.mean()}, step=step_global)
-            wandb.log({"eae_mention_loss": mention_loss.item()}, step=step_global)
-            wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
+            wandb.log({"eae_train_loss": sum(losses)/len(losses)}, step=step_global)
+            wandb.log({"eae_mention_loss": sum(mention_losses)/len(mention_losses)}, step=step_global)
+            wandb.log({"eae_argex_loss": sum(argex_losses)/len(argex_losses)}, step=step_global)
             wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
 
             
