@@ -162,7 +162,7 @@ for i in tqdm.tqdm(range(args.num_epochs)):
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
             wandb.log({"eae_loss": sum(losses)/len(losses)}, step=step_global)
             wandb.log({"eae_argex_loss": sum(argex_losses)/len(argex_losses)}, step=step_global)
-            wandb.log({"adapt_learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
+            #wandb.log({"adapt_learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
 
             
             
