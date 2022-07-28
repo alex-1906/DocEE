@@ -34,7 +34,7 @@ parser.add_argument("--k_mentions", type=int, default=50, help="number of mentio
 parser.add_argument("--pooling", type=str, default="mean", help="mention pooling method (mean, max)")
 
 parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
-parser.add_argument("--batch_size", type=int, default=4, help="eval batch size")
+parser.add_argument("--batch_size", type=int, default=1, help="eval batch size")
 parser.add_argument("--shuffle", type=str, default=False, help="randomly shuffles data samples")
 
 parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
@@ -109,7 +109,7 @@ mymodel = Encoder(lm_config,
                 soft_mention=args.soft_mention,
                 at_inference=args.at_inference,
                  )
-optimizer = AdamW(mymodel.parameters(), lr=args.learning_rate, eps=1e-6)
+optimizer = AdamW(mymodel.parameters(), lr=args.learning_rate, eps=1e-7)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device: ", device)
@@ -147,7 +147,7 @@ for epoch in range(args.epochs):
 
             #optimizer.zero_grad()
             mymodel.zero_grad()
-            del loss
+            del mention_loss,argex_loss,loss,e2e_events
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
