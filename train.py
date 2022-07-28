@@ -132,7 +132,7 @@ for epoch in range(args.epochs):
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             print(doc_ids)
             # --------- E2E Task  ------------#
-            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
+            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
 
 
             progress_bar.set_postfix({"L":f"{loss.item():.2f}"})
@@ -156,7 +156,7 @@ for epoch in range(args.epochs):
             #print(doc_ids)
             # --------- E2E Task  ------------#
             with torch.no_grad():
-                _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
+                _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
                 _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
                 for batch_i in range(input_ids.shape[0]):
                     doc_id_list.append(doc_ids[batch_i])
