@@ -149,29 +149,45 @@ for epoch in range(args.num_epochs):
             if device == 'cuda':
                 with autocast:
                     mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+                mention_losses.append(mention_loss.item())
+                argex_losses.append(argex_loss.item())
+                losses.append(loss.item())
+
+                progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
+                wandb.log({"eae_train_loss": losses.mean()}, step=step_global)
+                wandb.log({"eae_mention_loss": mention_losses.mean()}, step=step_global)
+                wandb.log({"eae_argex_loss": argex_losses.mean()}, step=step_global)
+                wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
+
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                #loss.backward()
+                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
+                scaler.step(optimizer)
+                #optimizer.step()
+                scaler.update()
+                lr_scheduler.step()
+                mymodel.zero_grad()
+                del mention_loss,argex_loss,loss,eae_events
             else:
                 mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-           
-            mention_losses.append(mention_loss.item())
-            argex_losses.append(argex_loss.item())
-            losses.append(loss.item())
+                mention_losses.append(mention_loss.item())
+                argex_losses.append(argex_loss.item())
+                losses.append(loss.item())
+                loss.backward()
+                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
+                optimizer.step()
+                scaler.update()
+                mymodel.zero_grad()
+                del mention_loss,argex_loss,loss,eae_events
 
+                
             progress_bar.set_postfix({"L":f"{losses.mean():.2f}"})
             wandb.log({"eae_train_loss": losses.mean()}, step=step_global)
             wandb.log({"eae_mention_loss": mention_losses.mean()}, step=step_global)
             wandb.log({"eae_argex_loss": argex_losses.mean()}, step=step_global)
             wandb.log({"learning_rate": lr_scheduler.get_last_lr()[0]}, step=step_global)
-
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            #loss.backward()
-            nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
-            scaler.step(optimizer)
-            #optimizer.step()
-            scaler.update()
-            lr_scheduler.step()
-            mymodel.zero_grad()
-            del mention_loss,argex_loss,loss,eae_events
+            
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
