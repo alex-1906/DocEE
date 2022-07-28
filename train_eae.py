@@ -36,7 +36,7 @@ parser.add_argument("--train_set_size", type=str, default='small', help="size of
 parser.add_argument("--batch_size_eval", type=int, default=4, help="eval batch size")
 parser.add_argument("--batch_size_training", type=int, default=4, help="training batch size")
 parser.add_argument("--warmup_epochs", type=int, default=1, help="warmup epochs")
-parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
+parser.add_argument("--learning_rate", type=float, default=1e-6, help="learning rate")
 
 parser.add_argument("--project", type=str, default="DocEE_eae", help="project name for wandb")
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
@@ -134,7 +134,7 @@ print("Training on {}".format(args.train_set_size))
 #best_IDF_H_F1, best_IDF_C_F1, best_CLF_H_F1, best_CLF_C_F1 = 0.0, 0.0, 0.0, 0.0
 best_compound_f1 = 0.0
 step_global = -1
-for epoch in range(args.num_epochs):
+for i in tqdm(range(args.num_epochs)):
     losses,argex_losses = [], []
     eae_event_list = []
     doc_id_list = []
@@ -167,7 +167,7 @@ for epoch in range(args.num_epochs):
             
             
     mymodel.eval()
-    print("Evaluating on dev")
+    print("Evaluation on dev")
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
 
