@@ -87,7 +87,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_small.json",
+    parse_file("data/WikiEvents/preprocessed/train_medium.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
