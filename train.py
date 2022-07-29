@@ -84,7 +84,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_small.json",
+    parse_file("data/WikiEvents/preprocessed/train_medium.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -133,17 +133,21 @@ for epoch in range(args.epochs):
         for sample in progress_bar:
             #with torch.autograd.detect_anomaly():
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            print(doc_ids)
+            #print(doc_ids)
             # --------- E2E Task  ------------#
-            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
 
-
-            progress_bar.set_postfix({"L":f"{loss.item():.2f}"})
-            wandb.log({"e2e_train_loss": loss.item()})
-            wandb.log({"e2e_mention_loss": mention_loss.item()})
-            wandb.log({"e2e_argex_loss": argex_loss.item()})
+            if args.full_task:
+                wandb.log({"e2e_train_loss": loss.item()})
+                wandb.log({"e2e_mention_loss": mention_loss.item()})
+                wandb.log({"e2e_argex_loss": argex_loss.item()})
+            else:
+                wandb.log({"eae_train_loss": loss.item()})
+                # wandb.log({"eae_mention_loss": mention_loss.item()}) # wird hier ja nicht gebraucht...
+                wandb.log({"eae_argex_loss": argex_loss.item()})
 
             losses.append(loss.item())
+            progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
             loss.backward()
             nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
             optimizer.step()
@@ -159,7 +163,8 @@ for epoch in range(args.epochs):
             #print(doc_ids)
             # --------- E2E Task  ------------#
             with torch.no_grad():
-                _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+                if args.full_task:
+                    _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
                 _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
                 for batch_i in range(input_ids.shape[0]):
                     doc_id_list.append(doc_ids[batch_i])
@@ -170,10 +175,12 @@ for epoch in range(args.epochs):
                     except:
                         e2e_event_list.append([])
                         eae_event_list.append([])
-    e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
+    if args.full_task:
+        e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
-    wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
-    wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] })      
+    if args.full_task:
+        wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
+        wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] })      
     wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] })
     wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }) 
         
