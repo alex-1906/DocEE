@@ -8,6 +8,7 @@ import os
 import tqdm
 import torch
 import torch.nn as nn
+from torch.cuda.amp import autocast, GradScaler
 from torch.utils.data import DataLoader
 from transformers import (AutoConfig, AutoModel, AutoTokenizer, BertConfig,
                           DistilBertConfig, RobertaConfig, XLMRobertaConfig)
@@ -39,6 +40,7 @@ parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
 parser.add_argument("--warmup_epochs", type=int, default=1, help="number of warmup epochs (during which learning rate increases linearly from zero to set learning rate)")
 parser.add_argument("--batch_size", type=int, default=1, help="eval batch size")
 parser.add_argument("--shuffle", type=str, default=False, help="randomly shuffles data samples")
+parser.add_argument("--mixed_precision", type=str, default=False, help="use mixed precision training")
 
 parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
 
@@ -85,7 +87,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_medium.json",
+    parse_file("data/WikiEvents/preprocessed/train_small.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -115,6 +117,9 @@ mymodel = Encoder(lm_config,
                  )
 optimizer = AdamW(mymodel.parameters(), lr=args.learning_rate, eps=1e-7)
 lr_scheduler = get_linear_schedule_with_warmup(optimizer, int(args.warmup_epochs * len(train_loader)), int(args.epochs*len(train_loader)))
+if args.mixed_precision:
+    scaler = GradScaler()
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device: ", device)
@@ -137,7 +142,11 @@ for epoch in range(args.epochs):
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             #print(doc_ids)
             # --------- E2E Task  ------------#
-            mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            if args.mixed_precision:
+                with autocast():
+                    mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            else:
+                mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
 
             if args.full_task:
                 wandb.log({"e2e_train_loss": loss.item()})
@@ -150,9 +159,18 @@ for epoch in range(args.epochs):
 
             losses.append(loss.item())
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
-            loss.backward()
-            nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
-            optimizer.step()
+
+            if args.mixed_precision:
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+            else:  
+                loss.backward()
+                nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
+                optimizer.step()
+
             lr_scheduler.step()
 
             #optimizer.zero_grad()
