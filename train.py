@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from transformers import (AutoConfig, AutoModel, AutoTokenizer, BertConfig,
                           DistilBertConfig, RobertaConfig, XLMRobertaConfig)
-from transformers.optimization import AdamW
+from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from src.data import collate_fn, parse_file
 from src.eval_util import get_eval, get_eval_by_id
 from src.model import Encoder
