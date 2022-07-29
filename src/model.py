@@ -180,47 +180,47 @@ class Encoder(nn.Module):
                 for c in class_for_max_span:
                     entity_types[batch_i].append(self.mention_types[c])
                     entity_ids[batch_i].append('unk')
-                for s in max_spans:
-                    entity_spans[batch_i].append([candidate_spans[batch_i][s]])
+                for e in max_spans:
+                    entity_spans[batch_i].append([candidate_spans[batch_i][e]])
             #print(f"entity_attentions: {entity_attentions}")
             #print(f"entity_embeddings: {entity_embeddings}")
             # ---------- Localized Context Pooling ------------
             relation_candidates = []
             localized_context = []
             concat_embs = []
-            triggers = []
+            
             #print(f"entity_attentions contains nans: {entity_attentions.isnan().any()}")
-            for s in range(entity_embeddings.shape[0]):
-                if entity_types[batch_i][s].split(".")[-1] != "TRIGGER":
-                    continue
-                triggers.append(s)
-                for o in range(entity_embeddings.shape[0]):
-                    if s != o:
-                        relation_candidates.append((s,o))
+            triggers = []
+            objects = []
+            for e in range(entity_embeddings.shape[0]):
+                if entity_types[batch_i][e].split(".")[-1] == "TRIGGER":
+                    triggers.append(e)
+                else:
+                    objects.append(e)
 
-                        A_s = entity_attentions[s,:,:]
-                        A_o = entity_attentions[o,:,:]
-                        A = torch.mul(A_o,A_s)
-                        q = torch.sum(A,0)
-                        
-                        a = q / (q.sum() + 1e-30)
-                        H_T = sequence_output[batch_i].T
-                        c = torch.matmul(H_T,a)
-                        localized_context.append(c)
+            for t in triggers:
+                for o in objects:
+                    relation_candidates.append((t,o))
 
-                        concat_emb = torch.cat((entity_embeddings[s],entity_embeddings[o],c),0)
-                        concat_embs.append(concat_emb)
+                    A_s = entity_attentions[t,:,:]
+                    A_o = entity_attentions[o,:,:]
+                    A = torch.mul(A_o,A_s)
+                    q = torch.sum(A,0)
+                    
+                    a = q / (q.sum() + 1e-30)
+                    H_T = sequence_output[batch_i].T
+                    c = torch.matmul(H_T,a)
+                    localized_context.append(c)
+
+                    concat_emb = torch.cat((entity_embeddings[e],entity_embeddings[o],c),0)
+                    concat_embs.append(concat_emb)
             if(len(localized_context) == 0):
                 continue
-            localized_context = torch.stack(localized_context)
-            #print(f"localized_context contains nans: {localized_context.isnan().any()}")
             embs = torch.stack(concat_embs)
             
             triggers = list(set(triggers))
             # ---------- Pairwise Comparisons and Predictions ------------
-            #print(f"embs: {embs}")
-            #print(f"self.relation_embeddings contains nans: {self.relation_embeddings.isnan().any()}")
-            #print(f"embs contains nans: {embs.isnan().any()}")
+
             scores = torch.matmul(embs,self.relation_embeddings.T)
             nota_scores = torch.matmul(embs,self.nota_embeddings.T)
             nota_scores = nota_scores.max(dim=-1,keepdim=True)[0]
@@ -242,13 +242,9 @@ class Encoder(nn.Module):
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
 
-                zeros = scores.numel() - scores.nonzero().size(0)
                 scores = scores.clamp(min=1e-30)
-                #print(f"scores contain zeros: {zeros}")
                 
-                #print(f"scores contains nans: {scores.isnan().any()}")
                 argex_loss += self.at_loss(scores,targets)
-                #print(f"argex_loss: {argex_loss}")
                 counter += 1
             
             # ---------- Inference ------------
