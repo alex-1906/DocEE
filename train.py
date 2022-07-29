@@ -36,6 +36,7 @@ parser.add_argument("--k_mentions", type=int, default=50, help="number of mentio
 parser.add_argument("--pooling", type=str, default="mean", help="mention pooling method (mean, max)")
 
 parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
+parser.add_argument("--warmup_epochs", type=int, default=1, help="number of warmup epochs (during which learning rate increases linearly from zero to set learning rate)")
 parser.add_argument("--batch_size", type=int, default=1, help="eval batch size")
 parser.add_argument("--shuffle", type=str, default=False, help="randomly shuffles data samples")
 
@@ -113,6 +114,7 @@ mymodel = Encoder(lm_config,
                 at_inference=args.at_inference,
                  )
 optimizer = AdamW(mymodel.parameters(), lr=args.learning_rate, eps=1e-7)
+lr_scheduler = get_linear_schedule_with_warmup(optimizer, int(args.warmup_epochs * len(train_loader)), int(args.epochs*len(train_loader)))
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using device: ", device)
@@ -151,6 +153,7 @@ for epoch in range(args.epochs):
             loss.backward()
             nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
             optimizer.step()
+            lr_scheduler.step()
 
             #optimizer.zero_grad()
             mymodel.zero_grad()
