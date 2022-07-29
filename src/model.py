@@ -237,6 +237,8 @@ class Encoder(nn.Module):
                     onehot = torch.zeros(len(self.relation_types))
                     if r in relation_labels[batch_i]:
                         onehot[relation_labels[batch_i][r]] = 1.0
+                    else:
+                        onehot[0] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
 
