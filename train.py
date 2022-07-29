@@ -27,8 +27,7 @@ random_string = ''.join(random.SystemRandom().choice(string.ascii_letters + stri
 print(random_string)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--project", type=str, default="test-e2e-gpu", help="project name for wandb")
-parser.add_argument("--checkpoint", type=str, default=None, help="checkpoint path")
+parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
@@ -130,8 +129,8 @@ mymodel.to(device)
 # ---------- Train Loop -----------#
 
 step_global = 0
-
-for epoch in range(args.epochs):
+eae_best_compound_f1, e2e_best_compound_f1  = 0.0,0.0
+for epoch in tqdm.tqdm(range(args.epochs)):
     losses = []
     eae_event_list,e2e_event_list = [],[]
     doc_id_list = []
@@ -193,23 +192,40 @@ for epoch in range(args.epochs):
                     doc_id_list.append(doc_ids[batch_i])
                     token_maps.append(token_map[batch_i])
                     try:
-                        e2e_event_list.append(e2e_events[batch_i])
+                        if args.full_task:
+                            e2e_event_list.append(e2e_events[batch_i])
                         eae_event_list.append(eae_events[batch_i])
                     except:
                         e2e_event_list.append([])
                         eae_event_list.append([])
+
+
     if args.full_task:
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
+        e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
+    eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
+    wandb.log({"eae_Compound_F1":eae_compound_f1 }, step=step_global)   
+    eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
+    wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
     if args.full_task:
-        wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] }, step=step_global)
-        wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] }, step=step_global)      
-    wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] }, step=step_global)
-    wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }, step=step_global) 
+        if e2e_compound_f1 > e2e_best_compound_f1:
+            wandb.log({"e2e_Compound_F1":e2e_compound_f1 }, step=step_global)  
+            wandb.log({"e2e_Identification_Head_F1":e2e_report["Identification"]["Head"]["F1"] }, step=step_global)
+            wandb.log({"e2e_Identification_Coref_F1":e2e_report["Identification"]["Coref"]["F1"] }, step=step_global)
+            wandb.log({"e2e_Classification_Head_F1":e2e_report["Classification"]["Head"]["F1"] }, step=step_global)
+            wandb.log({"e2e_Classification_Coref_F1":e2e_report["Classification"]["Coref"]["F1"] }, step=step_global)  
+    if eae_compound_f1 > eae_best_compound_f1:
+        wandb.log({"eae_Compound_F1":eae_compound_f1 }, step=step_global)      
+        wandb.log({"eae_Identification_Head_F1":eae_report["Identification"]["Head"]["F1"] }, step=step_global)
+        wandb.log({"eae_Identification_Coref_F1":eae_report["Identification"]["Coref"]["F1"] }, step=step_global)
+        wandb.log({"eae_Classification_Head_F1":eae_report["Classification"]["Head"]["F1"] }, step=step_global)
+        wandb.log({"eae_Classification_Coref_F1":eae_report["Classification"]["Coref"]["F1"] }, step=step_global)  
+        torch.save(mymodel.state_dict(), f"checkpoints/{args.project}_{random_string}.pt")
         
         
 
 # %%
-torch.save(mymodel.state_dict(), f"checkpoints/{args.checkpoint}.pt")
+#torch.save(mymodel.state_dict(), f"checkpoints/{random_string}.pt")
 
 #%%
