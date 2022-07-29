@@ -129,6 +129,7 @@ mymodel.to(device)
 # %%
 # ---------- Train Loop -----------#
 
+step_global = 0
 
 for epoch in range(args.epochs):
     losses = []
@@ -138,6 +139,7 @@ for epoch in range(args.epochs):
     mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
+            step_global += args.batch_size
             #with torch.autograd.detect_anomaly():
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             #print(doc_ids)
@@ -149,13 +151,13 @@ for epoch in range(args.epochs):
                 mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
 
             if args.full_task:
-                wandb.log({"e2e_train_loss": loss.item()})
-                wandb.log({"e2e_mention_loss": mention_loss.item()})
-                wandb.log({"e2e_argex_loss": argex_loss.item()})
+                wandb.log({"e2e_train_loss": loss.item()}, step=step_global)
+                wandb.log({"e2e_mention_loss": mention_loss.item()}, step=step_global)
+                wandb.log({"e2e_argex_loss": argex_loss.item()}, step=step_global)
             else:
-                wandb.log({"eae_train_loss": loss.item()})
+                wandb.log({"eae_train_loss": loss.item()}, step=step_global)
                 # wandb.log({"eae_mention_loss": mention_loss.item()}) # wird hier ja nicht gebraucht...
-                wandb.log({"eae_argex_loss": argex_loss.item()})
+                wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
 
             losses.append(loss.item())
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
@@ -200,10 +202,10 @@ for epoch in range(args.epochs):
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     if args.full_task:
-        wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] })
-        wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] })      
-    wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] })
-    wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }) 
+        wandb.log({"e2e_IDF_C_F1":e2e_report["Identification"]["Coref"]["F1"] }, step=step_global)
+        wandb.log({"e2e_CLF_C_F1":e2e_report["Classification"]["Coref"]["F1"] }, step=step_global)      
+    wandb.log({"eae_IDF_C_F1":eae_report["Identification"]["Coref"]["F1"] }, step=step_global)
+    wandb.log({"eae_CLF_C_F1":eae_report["Classification"]["Coref"]["F1"] }, step=step_global) 
         
         
 
