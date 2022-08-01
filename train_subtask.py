@@ -27,14 +27,8 @@ random_string = ''.join(random.SystemRandom().choice(string.ascii_letters + stri
 print(random_string)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--project", type=str, default="test-e2e-gpu", help="project name for wandb")
-parser.add_argument("--checkpoint", type=str, default=None, help="checkpoint path")
+parser.add_argument("--project", type=str, default="subtask-test", help="project name for wandb")
 
-parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
-parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
-parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
-parser.add_argument("--k_mentions", type=int, default=50, help="number of mention spans to perform relation extraction on")
-parser.add_argument("--pooling", type=str, default="mean", help="mention pooling method (mean, max)")
 
 parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
 parser.add_argument("--warmup_epochs", type=int, default=1, help="number of warmup epochs (during which learning rate increases linearly from zero to set learning rate)")
@@ -89,12 +83,12 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_medium.json",
+    parse_file("data/WikiEvents/preprocessed/train_small.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
-    batch_size=4,
-    shuffle=False,
+    batch_size=args.batch_size,
+    shuffle=args.shuffle,
     collate_fn=collate_fn)
 
 

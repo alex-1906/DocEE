@@ -175,4 +175,4 @@ class Encoder(nn.Module):
                 }
                 events.append(event)
             batch_events.append(events)
-        return argex_loss, events
+        return argex_loss, batch_events
