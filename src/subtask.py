@@ -57,7 +57,8 @@ class Encoder(nn.Module):
     def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text):
         sequence_output, attention = self.encode(input_ids, attention_mask)
 
-        argex_loss = torch.zeros((1),requires_grad=True).to(sequence_output)
+        argex_loss = torch.zeros(1,requires_grad=True).to(sequence_output)
+        #argex_loss = torch.autograd.Variable(argex_loss,requires_grad=True)
 
         counter = 0
         batch_triples = []
@@ -141,9 +142,19 @@ class Encoder(nn.Module):
                         targets.append(0)
                 targets = torch.tensor(targets).to(self.model.device)
 
+                fk_scores = []
+                for r in relation_candidates:
+                    onehot = torch.zeros(len(self.relation_types))
+                    if r in relation_labels[batch_i]:
+                        onehot[relation_labels[batch_i][r]] = 1.0
+                    else:
+                        onehot[0] = 1.0
+                    fk_scores.append(onehot)
+                fk_scores = torch.stack(fk_scores).to(self.model.device)
+
                 
                 
-                argex_loss = self.nll_loss(self.m(scores), targets)
+                argex_loss += self.nll_loss(self.m(fk_scores), targets)
 
                 #counter += 1
             
