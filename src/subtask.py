@@ -28,6 +28,8 @@ class Encoder(nn.Module):
         torch.nn.init.uniform_(self.nota_embeddings, a=-1.0, b=1.0)
 
         self.at_loss = ATLoss()
+        self.m = nn.LogSoftmax(dim=1)
+        self.nll_loss = nn.NLLLoss()
                 
         self.cls_token_id = cls_token_id
         self.sep_token_id = sep_token_id
@@ -118,19 +120,34 @@ class Encoder(nn.Module):
             
             if self.training:
             # ---------- ATLoss with one-hot encoding for true labels ------------
-                targets = []
-                for r in relation_candidates:
-                    onehot = torch.zeros(len(self.relation_types))
-                    if r in relation_labels[batch_i]:
-                        onehot[relation_labels[batch_i][r]] = 1.0
-                    else:
-                        onehot[0] = 1.0
-                    targets.append(onehot)
-                targets = torch.stack(targets).to(self.model.device)
+                # targets = []
+                # for r in relation_candidates:
+                #     onehot = torch.zeros(len(self.relation_types))
+                #     if r in relation_labels[batch_i]:
+                #         onehot[relation_labels[batch_i][r]] = 1.0
+                #     else:
+                #         onehot[0] = 1.0
+                #     targets.append(onehot)
+                # targets = torch.stack(targets).to(self.model.device)
 
                 #scores = scores.clamp(min=1e-30)
                 
-                argex_loss += self.at_loss(scores,targets)
+                #argex_loss += self.at_loss(scores,targets)
+                targets = []
+                for r in relation_candidates:
+                    if r in relation_labels[batch_i]:
+                        targets.append(1)
+                    else:
+                        targets.append(0)
+                targets = torch.tensor(targets).to(self.model.device)
+
+                
+                
+                argex_loss = self.nll_loss(self.m(scores), targets)
+
+                print('input: ', scores)
+                print('target: ', targets)
+                print('output: ', argex_loss)
                 #counter += 1
             
             # ---------- Inference ------------
