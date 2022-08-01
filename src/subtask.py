@@ -22,9 +22,9 @@ class Encoder(nn.Module):
         self.config = config
         self.model = model
         
-        self.relation_embeddings = nn.Parameter(torch.zeros((59,3*768)))
+        self.relation_embeddings = nn.Parameter(torch.zeros((59,2*768)))
         torch.nn.init.uniform_(self.relation_embeddings, a=-1.0, b=1.0)            
-        self.nota_embeddings = nn.Parameter(torch.zeros((20,3*768)))
+        self.nota_embeddings = nn.Parameter(torch.zeros((20,2*768)))
         torch.nn.init.uniform_(self.nota_embeddings, a=-1.0, b=1.0)
 
         self.at_loss = ATLoss()
@@ -103,7 +103,7 @@ class Encoder(nn.Module):
                     c = torch.matmul(H_T,a)
                     localized_context.append(c)
 
-                    concat_emb = torch.cat((entity_embeddings[e],entity_embeddings[o],c),0)
+                    concat_emb = torch.cat((entity_embeddings[e],entity_embeddings[o]),0)
                     concat_embs.append(concat_emb)
             if(len(localized_context) == 0):
                 continue
@@ -145,9 +145,6 @@ class Encoder(nn.Module):
                 
                 argex_loss = self.nll_loss(self.m(scores), targets)
 
-                print('input: ', scores)
-                print('target: ', targets)
-                print('output: ', argex_loss)
                 #counter += 1
             
             # ---------- Inference ------------
