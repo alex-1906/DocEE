@@ -112,10 +112,10 @@ class Encoder(nn.Module):
             triggers = list(set(triggers))
             # ---------- Pairwise Comparisons and Predictions ------------
 
-            scores = torch.matmul(embs,self.relation_embeddings.T)
-            nota_scores = torch.matmul(embs,self.nota_embeddings.T)
-            nota_scores = nota_scores.max(dim=-1,keepdim=True)[0]
-            scores = torch.cat((nota_scores, scores), dim=-1)
+            prescores = torch.matmul(embs,self.relation_embeddings.T)
+            prenota_scores = torch.matmul(embs,self.nota_embeddings.T)
+            nota_scores = prenota_scores.max(dim=-1,keepdim=True)[0]
+            scores = torch.cat((nota_scores, prescores), dim=-1)
             predictions = torch.argmax(scores, dim=-1, keepdim=False)
             
             if self.training:
@@ -136,7 +136,7 @@ class Encoder(nn.Module):
                 targets = []
                 for r in relation_candidates:
                     if r in relation_labels[batch_i]:
-                        targets.append(1)
+                        targets.append(relation_labels[batch_i][r])
                     else:
                         targets.append(0)
                 targets = torch.tensor(targets).to(self.model.device)
