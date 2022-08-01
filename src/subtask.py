@@ -57,9 +57,10 @@ class Encoder(nn.Module):
     def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text):
         sequence_output, attention = self.encode(input_ids, attention_mask)
 
-        argex_loss = torch.zeros(1,requires_grad=True).to(sequence_output)
+        #argex_loss = torch.zeros(1,requires_grad=True).to(sequence_output)
         #argex_loss = torch.autograd.Variable(argex_loss,requires_grad=True)
-
+        argex_loss = torch.zeros(1).to(sequence_output)
+        argex_loss.requires_grad = True
         counter = 0
         batch_triples = []
         batch_events = []
@@ -121,40 +122,40 @@ class Encoder(nn.Module):
             
             if self.training:
             # ---------- ATLoss with one-hot encoding for true labels ------------
-                # targets = []
-                # for r in relation_candidates:
-                #     onehot = torch.zeros(len(self.relation_types))
-                #     if r in relation_labels[batch_i]:
-                #         onehot[relation_labels[batch_i][r]] = 1.0
-                #     else:
-                #         onehot[0] = 1.0
-                #     targets.append(onehot)
-                # targets = torch.stack(targets).to(self.model.device)
-
-                #scores = scores.clamp(min=1e-30)
-                
-                #argex_loss += self.at_loss(scores,targets)
                 targets = []
-                for r in relation_candidates:
-                    if r in relation_labels[batch_i]:
-                        targets.append(relation_labels[batch_i][r])
-                    else:
-                        targets.append(0)
-                targets = torch.tensor(targets).to(self.model.device)
-
-                fk_scores = []
                 for r in relation_candidates:
                     onehot = torch.zeros(len(self.relation_types))
                     if r in relation_labels[batch_i]:
                         onehot[relation_labels[batch_i][r]] = 1.0
                     else:
                         onehot[0] = 1.0
-                    fk_scores.append(onehot)
-                fk_scores = torch.stack(fk_scores).to(self.model.device)
+                    targets.append(onehot)
+                targets = torch.stack(targets).to(self.model.device)
+
+                #scores = scores.clamp(min=1e-30)
+                
+                argex_loss = argex_loss + self.at_loss(scores,targets)
+                # targets = []
+                # for r in relation_candidates:
+                #     if r in relation_labels[batch_i]:
+                #         targets.append(relation_labels[batch_i][r])
+                #     else:
+                #         targets.append(0)
+                # targets = torch.tensor(targets).to(self.model.device)
+
+                # fk_scores = []
+                # for r in relation_candidates:
+                #     onehot = torch.zeros(len(self.relation_types))
+                #     if r in relation_labels[batch_i]:
+                #         onehot[relation_labels[batch_i][r]] = 1.0
+                #     else:
+                #         onehot[0] = 1.0
+                #     fk_scores.append(onehot)
+                # fk_scores = torch.stack(fk_scores).to(self.model.device)
 
                 
                 
-                argex_loss += self.nll_loss(self.m(fk_scores), targets)
+                # argex_loss += self.nll_loss(fk_scores, targets)
 
                 #counter += 1
             
@@ -200,4 +201,6 @@ class Encoder(nn.Module):
                 }
                 events.append(event)
             batch_events.append(events)
+
+        #print(argex_loss.grad_fn)
         return argex_loss, batch_events
