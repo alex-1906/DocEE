@@ -1,3 +1,4 @@
+from importlib.metadata import requires
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer
@@ -59,12 +60,12 @@ class Encoder(nn.Module):
 
         #argex_loss = torch.zeros(1,requires_grad=True).to(sequence_output)
         #argex_loss = torch.autograd.Variable(argex_loss,requires_grad=True)
-        argex_loss = torch.zeros(1).to(sequence_output)
-        argex_loss.requires_grad = True
+        argex_loss = torch.zeros(1,requires_grad=True).to(sequence_output)
+        #argex_loss.requires_grad = True
         counter = 0
         batch_triples = []
         batch_events = []
-                    
+        losses = [argex_loss]
         for batch_i in range(sequence_output.size(0)):
 
             # ---------- Pooling Entity Embeddings and Attentions ------------
@@ -131,33 +132,29 @@ class Encoder(nn.Module):
                         onehot[0] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
-
-                #scores = scores.clamp(min=1e-30)
-                
                 argex_loss = argex_loss + self.at_loss(scores,targets)
+                counter += 1
                 # targets = []
                 # for r in relation_candidates:
                 #     if r in relation_labels[batch_i]:
                 #         targets.append(relation_labels[batch_i][r])
                 #     else:
                 #         targets.append(0)
-                # targets = torch.tensor(targets).to(self.model.device)
+                # targets = torch.tensor(targets,dtype=torch.long).to(self.model.device)
 
                 # fk_scores = []
                 # for r in relation_candidates:
-                #     onehot = torch.zeros(len(self.relation_types))
+                #     onehot = torch.zeros(len(self.relation_types)).to(self.model.device)
                 #     if r in relation_labels[batch_i]:
                 #         onehot[relation_labels[batch_i][r]] = 1.0
                 #     else:
                 #         onehot[0] = 1.0
                 #     fk_scores.append(onehot)
                 # fk_scores = torch.stack(fk_scores).to(self.model.device)
-
-                
-                
-                # argex_loss += self.nll_loss(fk_scores, targets)
-
-                #counter += 1
+                # fk_scores.requires_grad = True
+                # argex_loss = argex_loss + self.nll_loss(fk_scores, targets)
+                # #counter += 1
+                print(argex_loss)
             
             # ---------- Inference ------------
             triples = []
@@ -201,6 +198,8 @@ class Encoder(nn.Module):
                 }
                 events.append(event)
             batch_events.append(events)
-
-        #print(argex_loss.grad_fn)
-        return argex_loss, batch_events
+        
+        if counter == 0:
+            return argex_loss, batch_events
+        else:
+            return argex_loss/counter, batch_events
