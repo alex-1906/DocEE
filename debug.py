@@ -87,27 +87,11 @@ mymodel.train()
 
 #%%
 input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = next(iter(train_loader))
-
-#%%
-loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text)
-loss.backward()
-#%%
-for batch_i in range(input_ids.shape[0]):
-    try:
-        eae_event_list.append(eae_events[batch_i])
-    except:
-        eae_event_list.append([ ])
-    doc_id_list.append(doc_ids[batch_i])
-    token_maps.append(token_map[batch_i])
-
-
-print(len(eae_event_list))
-print(len(doc_id_list))
-print(len(token_maps))
-#%%
-#eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
-
-
-# %%
-eae_events
-# %%
+epochs = 50
+for epoch in range(epochs):
+    loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text)
+    loss.backward()
+    optimizer.step()
+    mymodel.zero_grad()
+    print(loss)
+    del loss

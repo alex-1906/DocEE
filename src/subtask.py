@@ -31,6 +31,7 @@ class Encoder(nn.Module):
         self.at_loss = ATLoss()
         self.m = nn.LogSoftmax(dim=1)
         self.nll_loss = nn.NLLLoss()
+        self.ce_loss = nn.CrossEntropyLoss()
                 
         self.cls_token_id = cls_token_id
         self.sep_token_id = sep_token_id
@@ -132,7 +133,10 @@ class Encoder(nn.Module):
                         onehot[0] = 1.0
                     targets.append(onehot)
                 targets = torch.stack(targets).to(self.model.device)
+                #print(scores)
+                #print(targets)
                 argex_loss = argex_loss + self.at_loss(scores,targets)
+                #print(argex_loss)
                 counter += 1
                 # targets = []
                 # for r in relation_candidates:
@@ -152,9 +156,9 @@ class Encoder(nn.Module):
                 #     fk_scores.append(onehot)
                 # fk_scores = torch.stack(fk_scores).to(self.model.device)
                 # fk_scores.requires_grad = True
-                # argex_loss = argex_loss + self.nll_loss(fk_scores, targets)
-                # #counter += 1
-                print(argex_loss)
+                # argex_loss = argex_loss + self.ce_loss(fk_scores, targets)
+                # counter += 1
+                #print(argex_loss)
             
             # ---------- Inference ------------
             triples = []
