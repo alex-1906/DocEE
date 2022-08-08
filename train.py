@@ -34,6 +34,8 @@ parser.add_argument("--soft_mention", type=str, default=False, help="method for 
 parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
 parser.add_argument("--k_mentions", type=int, default=50, help="number of mention spans to perform relation extraction on")
 parser.add_argument("--pooling", type=str, default="mean", help="mention pooling method (mean, max)")
+parser.add_argument("--overfit_test", type=str, default="True", help="tries to overfit on train set")
+
 
 parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
 parser.add_argument("--warmup_epochs", type=int, default=1, help="number of warmup epochs (during which learning rate increases linearly from zero to set learning rate)")
@@ -85,8 +87,12 @@ with open("data/Ontology/feasible_roles.json") as f:
     feasible_roles = json.load(f)
 
 max_n = 9
+if(args.overfit_test):
+    train_file,dev_file,test_file = "train.json", "train.json","train.json"
+else:
+    train_file,dev_file,test_file = "train.json", "dev.json","test.json"
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_medium.json",
+    parse_file(f"data/WikiEvents/preprocessed/{train_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -94,7 +100,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/dev.json",
+    parse_file(f"data/WikiEvents/preprocessed/{dev_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -102,7 +108,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/test.json",
+    parse_file(f"data/WikiEvents/preprocessed/{test_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -209,10 +215,8 @@ for epoch in tqdm.tqdm(range(args.epochs)):
     if args.full_task:
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
         e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
-    print(eae_event_list)
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-    wandb.log({"eae_Compound_F1":1 }, step=step_global)   
     eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
     wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
     if args.full_task:
@@ -262,7 +266,6 @@ if args.full_task:
     e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
 eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
 eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-wandb.log({"Test_eae_Compound_F1":eae_compound_f1 }, step=step_global)   
 eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
 wandb.log({"Test_eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
 if args.full_task:
