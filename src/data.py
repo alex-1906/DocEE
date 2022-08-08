@@ -124,11 +124,18 @@ def parse_file(filepath, tokenizer, relation_types, max_candidate_length=3):
         token_ids, entity_spans, token_map, token_strings = tokenization_and_vectorization(tokens, entities, tokenizer)
 
         relation_labels = {}
+        if len(relation_types) == 60:
+            for rel in sample['labels']:
+                pair = (rel['h'], rel['t'])
+                label = relation_types.index(rel['r'].split(".")[-1])
+                relation_labels[pair] = label
+        else:
+            for rel in sample['labels']:
+                pair = (rel['h'], rel['t'])
+                label = relation_types.index(rel['r'])
+                relation_labels[pair] = label
 
-        for rel in sample['labels']:
-            pair = (rel['h'], rel['t'])
-            label = relation_types.index(rel['r'])
-            relation_labels[pair] = label
+       
             #triple = (rel['h'], rel['t'], label)
             #relation_labels.append(triple)
             '''if pair not in relation_labels.keys():

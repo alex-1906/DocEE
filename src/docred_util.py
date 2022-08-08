@@ -67,8 +67,8 @@ def getLabels(row):
                 if(entity[0]['id'] == argument['entity_id']):
                     tail = idx
             labels.append({
-                #r': event['event_type']+"."+argument['role'],
-                'r': argument['role'],
+                'r': event['event_type']+"."+argument['role'],
+                # 'r': argument['role'],
                 'h': head,
                 't': tail,
                 'evidence':[]
