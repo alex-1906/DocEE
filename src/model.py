@@ -303,7 +303,13 @@ class Encoder(nn.Module):
                 }
                 events.append(event)
             batch_events.append(events)
+        # if(counter == 0) and self.training:
+        #         return mention_loss,argex_loss,torch.autograd.Variable(mention_loss+argex_loss,requires_grad=True), batch_events
+        # else:
+        #     return mention_loss,argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events
+
+
         if(counter == 0) and self.training:
-                return mention_loss,argex_loss,torch.autograd.Variable(mention_loss+argex_loss,requires_grad=True), batch_events
+            return torch.autograd.Variable(argex_loss,requires_grad=True), batch_events
         else:
-            return mention_loss,argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events
+            return mention_loss,argex_loss/counter,argex_loss/counter, batch_events
