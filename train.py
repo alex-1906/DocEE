@@ -158,9 +158,9 @@ for epoch in tqdm.tqdm(range(args.epochs)):
             # --------- E2E Task  ------------#
             if args.mixed_precision:
                 with autocast():
-                    mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+                    mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
             else:
-                mention_loss,argex_loss,loss,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+                mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
 
             if args.full_task:
                 wandb.log({"e2e_train_loss": loss.item()}, step=step_global)
@@ -189,7 +189,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
 
             #optimizer.zero_grad()
             mymodel.zero_grad()
-            del mention_loss,argex_loss,loss,e2e_events
+            del mention_loss,argex_loss,loss,eae_events
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
@@ -218,7 +218,9 @@ for epoch in tqdm.tqdm(range(args.epochs)):
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
     eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
+    print(eae_report)
     wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
+    progress_bar.set_postfix({"Matches":eae_report["Identification"]["Head"]["Matches"]})
     if args.full_task:
         wandb.log({"e2e_Compound_F1":e2e_compound_f1 }, step=step_global)  
         wandb.log({"e2e_Identification_Head_F1":e2e_report["Identification"]["Head"]["F1"] }, step=step_global)
