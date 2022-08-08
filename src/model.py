@@ -310,6 +310,6 @@ class Encoder(nn.Module):
 
 
         if(counter == 0) and self.training:
-            return torch.autograd.Variable(argex_loss,requires_grad=True), batch_events
+            return mention_loss,torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(argex_loss+mention_loss,requires_grad=True), batch_events
         else:
-            return mention_loss,argex_loss/counter,argex_loss/counter, batch_events
+            return mention_loss,argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events

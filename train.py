@@ -88,7 +88,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 max_n = 9
 
 if args.overfit_test:
-    train_file,dev_file,test_file="train.json","train.json","train.json"
+    train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
 else:
     train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
@@ -217,11 +217,8 @@ for epoch in tqdm.tqdm(range(args.epochs)):
         e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-    wandb.log({"eae_Compound_F1":1 }, step=step_global)   
     eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
-    print(eae_report)
     wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
-    progress_bar.set_postfix({"Matches":eae_report["Identification"]["Head"]["Matches"]})
     if args.full_task:
         wandb.log({"e2e_Compound_F1":e2e_compound_f1 }, step=step_global)  
         wandb.log({"e2e_Identification_Head_F1":e2e_report["Identification"]["Head"]["F1"] }, step=step_global)
