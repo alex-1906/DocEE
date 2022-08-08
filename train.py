@@ -1,7 +1,5 @@
 #%%
 import argparse
-
-
 import pandas as pd
 import json
 import os
@@ -31,6 +29,8 @@ parser.add_argument("--project", type=str, default="GPU", help="project name for
 parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
+parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
+
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
 parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
 parser.add_argument("--k_mentions", type=int, default=50, help="number of mention spans to perform relation extraction on")
@@ -77,9 +77,12 @@ lm_model = AutoModel.from_pretrained(
 )
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-
-with open("data/Ontology/roles_shared.json") as f:
-    relation_types = json.load(f)
+if args.shared_roles:
+    with open("data/Ontology/roles_shared.json") as f:
+        relation_types = json.load(f)
+else:
+    with open("data/Ontology/roles_unique.json") as f:
+        relation_types = json.load(f)
 with open("data/Ontology/mention_types.json") as f:
     mention_types = json.load(f)
 with open("data/Ontology/feasible_roles.json") as f:
