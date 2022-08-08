@@ -28,6 +28,7 @@ print(random_string)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
+parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
@@ -85,8 +86,13 @@ with open("data/Ontology/feasible_roles.json") as f:
     feasible_roles = json.load(f)
 
 max_n = 9
+
+if args.overfit_test:
+    train_file,dev_file,test_file="train.json","train.json","train.json"
+else:
+    train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/train_medium.json",
+    parse_file(f"data/WikiEvents/preprocessed/{train_file}.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -94,7 +100,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/dev.json",
+    parse_file(f"data/WikiEvents/preprocessed/{dev_file}.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -102,7 +108,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file("data/WikiEvents/preprocessed/test.json",
+    parse_file(f"data/WikiEvents/preprocessed/{test_file}.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
