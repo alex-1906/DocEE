@@ -70,7 +70,7 @@ class Encoder(nn.Module):
         argex_loss = torch.zeros((1)).to(sequence_output)
         mention_loss = torch.zeros((1)).to(sequence_output)
         #print("device: ", sequence_output.device)
-        counter = 0
+        counter,counter_mention = 0,0
         batch_triples = []
         batch_events = []
 
@@ -157,6 +157,7 @@ class Encoder(nn.Module):
                                 if [c] == ent:
                                     mention_targets[idx] = self.mention_types.index(t)
                         mention_loss += self.ce_loss(span_scores,mention_targets)
+                        counter_mention += 1 
                         #print(f"mention_loss: {mention_loss}")
 
 
@@ -312,6 +313,6 @@ class Encoder(nn.Module):
 
 
         if(counter == 0) and self.training:
-            return mention_loss,torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(argex_loss+mention_loss,requires_grad=True), batch_events
+            return mention_loss/sequence_output.size(0),torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(argex_loss+mention_loss,requires_grad=True), batch_events
         else:
-            return mention_loss,argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events
+            return mention_loss/sequence_output.size(0),argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events

@@ -163,17 +163,12 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                 with autocast():
                     mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
             else:
-                mention_loss,argex_loss,loss,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+                mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
 
-            if args.full_task:
-                wandb.log({"e2e_train_loss": loss.item()}, step=step_global)
-                wandb.log({"e2e_mention_loss": mention_loss.item()}, step=step_global)
-                wandb.log({"e2e_argex_loss": argex_loss.item()}, step=step_global)
-            else:
-                wandb.log({"eae_train_loss": loss.item()}, step=step_global)
-                #wandb.log({"eae_mention_loss": mention_loss.item()}) # wird hier ja nicht gebraucht...
-                wandb.log({"eae_argex_loss": argex_loss.item()}, step=step_global)
-                wandb.log({"eae_argex_debug_loss": 1}, step=step_global)
+
+            wandb.log({"mention_loss": mention_loss.item()}, step=step_global) 
+            wandb.log({"argex_loss": argex_loss.item()}, step=step_global) 
+            wandb.log({"loss": loss.item()}, step=step_global)
 
             losses.append(loss.item())
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
@@ -192,7 +187,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
 
             #optimizer.zero_grad()
             mymodel.zero_grad()
-            del mention_loss,argex_loss,loss,eae_events
+            del mention_loss,argex_loss,loss,_
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
@@ -220,6 +215,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
         e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
     eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
     eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
+    #to check if offset F1s match with ID F1s
     eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
     wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
     if args.full_task:
@@ -269,7 +265,7 @@ if args.full_task:
     e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
 eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
 eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-wandb.log({"Test_eae_Compound_F1":eae_compound_f1 }, step=step_global)   
+#to check if offset F1s match with ID F1s
 eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
 wandb.log({"Test_eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
 if args.full_task:
