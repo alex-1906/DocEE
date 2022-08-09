@@ -35,15 +35,23 @@ def preprocess_we(coref = False):
                     df.drop(index=127,inplace=True)
                     df['event_len'] = df['event_mentions'].apply(lambda x: len(x))
                     df.sort_values(by='event_len',inplace=True)
+
                     df_small = df[:18]
                     df_medium = df[12:60]
+                    df_large = df.copy(deep=True)
+
 
                     df_small = to_docred(df_small)
                     df_medium = to_docred(df_medium)
+                    df_large = to_docred(df_large)
+                    
+                    #drop docs without relations
+                    df_large['len'] = df_large['labels'].apply(lambda x: len(x))
+                    df_large = df_large.drop(df_large[df_large['len']==0].index)
 
                     df_small.to_json(f"data/WikiEvents/preprocessed/train_small.json",orient="records")
                     df_medium.to_json(f"data/WikiEvents/preprocessed/train_medium.json",orient="records")
-                    df.to_json(f"data/WikiEvents/preprocessed/train_large.json",orient="records")
+                    df_large.to_json(f"data/WikiEvents/preprocessed/train_large.json",orient="records")
 
                 df = to_docred(df)
                 df.to_json(f"data/WikiEvents/preprocessed/{path}",orient="records")
