@@ -30,6 +30,7 @@ parser.add_argument("--overfit_test", type=str, default=False, help="True for fu
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
+parser.add_argument("--coref", type=str, default=False, help="Use coref mentions for embedding")
 
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
 parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
@@ -91,11 +92,17 @@ with open("data/Ontology/feasible_roles.json") as f:
 max_n = 9
 
 if args.overfit_test:
-    train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
+    if args.coref:
+        train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
+    else:
+        train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
 else:
-    train_file,dev_file,test_file="train.json","dev.json","test.json"
+    if args.coref:
+        train_file,dev_file,test_file="coref/train.json","coref/dev.json","coref/test.json"
+    else: 
+        train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/coref/{train_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{train_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -103,7 +110,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/coref/{dev_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{dev_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -111,7 +118,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/coref/{test_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{test_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
