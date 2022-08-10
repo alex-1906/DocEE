@@ -29,3 +29,8 @@ print(dev.len.mean())
 # %%
 dev
 # %%
+
+import pandas as pd
+
+df = pd.read_json("data/WikiEvents/preprocessed/coref_test.json")
+print(len(df))
