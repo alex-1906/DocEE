@@ -95,11 +95,7 @@ if args.overfit_test:
 else:
     train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
-<<<<<<< HEAD
-    parse_file("data/WikiEvents/preprocessed/coref_test.json",
-=======
-    parse_file("data/WikiEvents/preprocessed/coref/train_small.json",
->>>>>>> 7d18f6bd52d8142e853caa3b656bfb10f6a5bab1
+    parse_file(f"data/WikiEvents/preprocessed/coref/{train_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -107,7 +103,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{dev_file}",
+    parse_file(f"data/WikiEvents/preprocessed/coref/{dev_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -115,7 +111,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{test_file}",
+    parse_file(f"data/WikiEvents/preprocessed/coref/{test_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
