@@ -26,7 +26,10 @@ print(random_string)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
-parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
+parser.add_argument("--train_file", type=str, default="train.json", help="File for Training")
+parser.add_argument("--dev_file", type=str, default="dev.json", help="File for Training")
+parser.add_argument("--test_file", type=str, default="test.json", help="File for Training")
+
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
@@ -90,12 +93,12 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 
-if args.overfit_test:
-    train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
-else:
-    train_file,dev_file,test_file="train.json","dev.json","test.json"
+# if args.overfit_test:
+#     train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+# else:
+#     train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{train_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -103,7 +106,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{dev_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.dev_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -111,7 +114,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{test_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.test_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
