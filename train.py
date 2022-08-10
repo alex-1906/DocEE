@@ -95,7 +95,11 @@ if args.overfit_test:
 else:
     train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
+<<<<<<< HEAD
     parse_file("data/WikiEvents/preprocessed/coref_test.json",
+=======
+    parse_file("data/WikiEvents/preprocessed/coref/train_small.json",
+>>>>>>> 7d18f6bd52d8142e853caa3b656bfb10f6a5bab1
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),

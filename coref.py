@@ -156,3 +156,8 @@ for sample in train_loader:
             
 # %%
 # %%
+import pandas as pd
+
+df = pd.read_json("data/WikiEvents/preprocessed/coref_test.json")
+len(df)
+# %%
