@@ -168,10 +168,21 @@ class Encoder(nn.Module):
                 entity_embeddings = []
                 entity_attentions = []
                 for ent in entity_spans[batch_i]:
-                    ent_embedding = torch.mean(sequence_output[batch_i, ent[0][0]:ent[0][1],:],0)
-                    entity_embeddings.append(ent_embedding)
-                    ent_attention = torch.mean(attention[batch_i,:,ent[0][0]:ent[0][1],:],1)
-                    entity_attentions.append(ent_attention)
+                    ment_embeddings = []
+                    ment_attentions = []
+                    for ment in ent:
+                        ment_embedding = torch.mean(sequence_output[batch_i, ment[0]:ment[1],:],0)
+                        ment_embeddings.append(ment_embedding)
+                        ment_attention = torch.mean(attention[batch_i,:,ment[0]:ment[1],:],1)
+                        ment_attentions.append(ment_attention)
+                    ment_embeddings = torch.stack(ment_embeddings)
+                    ment_attentions = torch.stack(ment_attentions)
+
+                    entity_embedding = torch.mean(ment_embeddings,0)
+                    entity_attention = torch.mean(ment_attentions,0)
+                    entity_embeddings.append(entity_embedding)
+                    entity_attentions.append(entity_attention)
+                    
                 if(len(entity_embeddings) == 0):
                     continue
                 entity_embeddings = torch.stack(entity_embeddings)

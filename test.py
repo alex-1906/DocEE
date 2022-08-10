@@ -57,7 +57,7 @@ len(relation_types)
 
 train_file,dev_file,test_file="train.json","dev.json","test.json"
 train_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/train_medium.json",
+    parse_file("data/WikiEvents/preprocessed/train.json",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -81,25 +81,31 @@ mymodel = Encoder(lm_config,
 
 sample = next(iter(train_loader))
 
-input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
+#input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
 
-mention_loss,argex_loss,loss,_ = mymodel(input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
-
-print( "test")
+#mention_loss,argex_loss,loss,_ = mymodel(input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
 
 #%%
-sample = next(iter(train_loader))
-
-input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
+co = pd.read_json("data/WikiEvents/preprocessed/full_eval_docred.json").set_index("doc_id")
 
 #%%
-input_ids
-# %%
+# sample = next(iter(train_loader))
+
 for sample in train_loader:
     input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-    for r in relation_labels:
-        for l in r.items():
-            if(l[1]>=60):
-                print(l)
-   
+    for d in doc_ids:
+        if d == 'scenario_en_kairos_65':
+            print(d)
+            print(entity_spans)
+#%%
+co = pd.read_json("data/WikiEvents/preprocessed/full_eval_docred.json").set_index("doc_id")
+# %%
+co.iloc[2].vertexSet
+# %%
+for idx,row in co.iterrows():
+
+    for ent in co.iloc[20].vertexSet:
+        if(len(ent) > 1):
+            print(ent)
+
 # %%

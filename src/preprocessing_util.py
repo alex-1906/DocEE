@@ -71,7 +71,7 @@ def preprocess_we(coref = False):
 def prep_we_eval():
     df_we = pd.read_json("data/WikiEvents/raw/full.json").set_index('doc_id')
     df_co = pd.read_json("data/WikiEvents/raw/coref/full.json").set_index('doc_key')
-
+    df_we['doc_id'] = df_we.index
     # ------ Coref Mapping ------
     coref_mapping = defaultdict(dict)
     for doc_id, row in df_co.iterrows():
@@ -96,16 +96,19 @@ def prep_we_eval():
                         if arg['entity_id'] == ent['id']:
                             arg['start'] = ent['start']
                             arg['end'] = ent['end']
+                            arg['entity_type'] = ent['entity_type']
                             continue
                         if c == ent['id']:
                             coref = {
                                 'entity_id':ent['id'],
                                 'start':ent['start'],
                                 'end':ent['end'],
-                                'text': ent['text']
+                                'text': ent['text'],
+                                'entity_type':ent['entity_type'],
+                                'sent_id':ent["sent_idx"]
                             }
                             corefs.append(coref)
-                arg['corefs'] = corefs
+                arg['corefs'] = corefs    
     df_we.to_json('data/WikiEvents/preprocessed/full_eval.json')
 
 
