@@ -98,9 +98,10 @@ if args.overfit_test:
         train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
 else:
     if args.coref:
-        train_file,dev_file,test_file="coref/train.json","coref/dev.json","coref/test.json"
+        train_file,dev_file,test_file="coref/train_medium.json","coref/dev.json","coref/test.json"
     else: 
-        train_file,dev_file,test_file="train.json","dev.json","test.json"
+        train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+print(f"\nTraining on {train_file}; Evaluation on {dev_file}\n")
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{train_file}",
     tokenizer=tokenizer,
