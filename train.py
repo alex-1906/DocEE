@@ -26,7 +26,10 @@ print(random_string)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
-parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
+parser.add_argument("--train_file", type=str, default="train.json", help="train file")
+parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
+parser.add_argument("--test_file", type=str, default="test.json", help="test file")
+#parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
 parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
@@ -91,19 +94,23 @@ with open("data/Ontology/feasible_roles.json") as f:
 
 max_n = 9
 
-if args.overfit_test:
-    if args.coref:
-        train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
-    else:
-        train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
-else:
-    if args.coref:
-        train_file,dev_file,test_file="coref/train_medium.json","coref/dev.json","coref/test.json"
-    else: 
-        train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
-print(f"\nTraining on {train_file}; Evaluation on {dev_file}\n")
+# if args.overfit_test:
+#     if args.coref:
+#         train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
+#     else:
+#         train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
+# else:
+#     if args.coref:
+#         train_file,dev_file,test_file="coref/train_medium.json","coref/dev.json","coref/test.json"
+#     else: 
+#         train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+if args.coref:
+    args.train_file = "coref/"+args.train_file
+    args.dev_file = "coref/"+args.dev_file
+    args.test_file = "coref/"+args.test_file
+print(f"\nTraining on {args.train_file}; Evaluation on {args.dev_file}\n")
 train_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{train_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -111,7 +118,7 @@ train_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 dev_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{dev_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.dev_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
@@ -119,7 +126,7 @@ dev_loader = DataLoader(
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
-    parse_file(f"data/WikiEvents/preprocessed/{test_file}",
+    parse_file(f"data/WikiEvents/preprocessed/{args.test_file}",
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
