@@ -32,7 +32,7 @@ parser.add_argument("--test_file", type=str, default="test.json", help="test fil
 #parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
-parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
+parser.add_argument("--shared_roles", type=str, default=False, help="Shared Role Types")
 parser.add_argument("--coref", type=str, default=False, help="Use coref mentions for embedding")
 
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
@@ -81,7 +81,8 @@ lm_model = AutoModel.from_pretrained(
 )
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-if args.shared_roles:
+if args.shared_roles == 'True':
+    print(f"\nshared roles\n")
     with open("data/Ontology/roles_shared.json") as f:
         relation_types = json.load(f)
 else:
@@ -104,11 +105,11 @@ max_n = 9
 #         train_file,dev_file,test_file="coref/train_medium.json","coref/dev.json","coref/test.json"
 #     else: 
 #         train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
-if args.coref:
+if args.coref == 'True':
     args.train_file = "coref/"+args.train_file
     args.dev_file = "coref/"+args.dev_file
     args.test_file = "coref/"+args.test_file
-print(f"\nTraining on {args.train_file}; Evaluation on {args.dev_file}\n")
+print(f"\nTraining on {args.train_file}; Evaluation on {args.dev_file}\n; Testing on {args.test_file}")
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
@@ -250,7 +251,10 @@ for epoch in tqdm.tqdm(range(args.epochs)):
 
 # --------- Evaluation on Test  ------------#
 print("---- TEST EVAL -----")
-mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
+try:
+    mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
+except:
+    pass
 mymodel.eval()
 eae_event_list,e2e_event_list = [],[]
 doc_id_list = []
