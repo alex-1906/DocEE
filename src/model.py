@@ -299,16 +299,17 @@ class Encoder(nn.Module):
                     r = dic[1].split(".")[-1]
 
                     #if r in self.feasible_roles[event_type]:
-                    a_start = entity_spans[batch_i][o][0][0]
-                    a_end = entity_spans[batch_i][o][0][1]
-                    argument = {
-                        'entity_id':entity_ids[batch_i][o],
-                        'role':r,
-                        'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][a_start:a_end]).lstrip(),
-                        'start':a_start,
-                        'end':a_end,
-                    }
-                    arguments.append(argument)
+                    if r != "NOTA":
+                        a_start = entity_spans[batch_i][o][0][0]
+                        a_end = entity_spans[batch_i][o][0][1]
+                        argument = {
+                            'entity_id':entity_ids[batch_i][o],
+                            'role':r,
+                            'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][a_start:a_end]).lstrip(),
+                            'start':a_start,
+                            'end':a_end,
+                        }
+                        arguments.append(argument)
                 event = {
                     'id':entity_ids[batch_i][t],
                     'event_type':event_type,

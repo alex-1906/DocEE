@@ -226,6 +226,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                         eae_event_list.append([])
 
 
+
     if args.full_task:
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
         e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4

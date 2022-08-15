@@ -29,7 +29,7 @@ def get_df(event_list,token_maps,doc_id_list):
     return df
 
 
-def get_eval(event_list,token_maps,doc_id_list,shared_roles = True):
+def get_eval(event_list,token_maps,doc_id_list):
 
     df = get_df(event_list,token_maps,doc_id_list)
 
@@ -50,8 +50,7 @@ def get_eval(event_list,token_maps,doc_id_list,shared_roles = True):
                         idf_h_matched += 1
                         idf_c_matched += 1
 
-                        role = arg['role'] if shared_roles else arg['role'].split(".")[-1]
-                        if g_arg['role'] == role:
+                        if g_arg['role'] == arg['role']:
                             clf_h_matched += 1
                             clf_c_matched += 1
                         
@@ -60,7 +59,7 @@ def get_eval(event_list,token_maps,doc_id_list,shared_roles = True):
                         if coref['start'] == arg['start'] and coref['end'] == arg['end']:
                             coref_span_matches.append((arg['entity_id'],(arg['start'],arg['end']),arg['text'],(coref['start'],coref['end']),coref['text']))
                             idf_c_matched += 1
-                            if g_arg['role'] == role:
+                            if g_arg['role'] == arg['role']:
                                 clf_c_matched += 1
                 idf_gold += 1
             for arg in e['arguments']:
