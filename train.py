@@ -225,6 +225,8 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                         e2e_event_list.append([])
                         eae_event_list.append([])
 
+                print(eae_events[0])
+
 
     if args.full_task:
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
