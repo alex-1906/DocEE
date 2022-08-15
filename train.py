@@ -109,7 +109,7 @@ if args.coref == 'True':
     args.train_file = "coref/"+args.train_file
     args.dev_file = "coref/"+args.dev_file
     args.test_file = "coref/"+args.test_file
-print(f"\nTraining on {args.train_file}; Evaluation on {args.dev_file}\n; Testing on {args.test_file}")
+print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
@@ -224,8 +224,6 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                     except:
                         e2e_event_list.append([])
                         eae_event_list.append([])
-
-                print(eae_events[0])
 
 
     if args.full_task:
