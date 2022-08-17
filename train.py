@@ -97,6 +97,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 max_n = 9
 
 # if args.overfit_test:
+<<<<<<< HEAD
 #     if args.coref:
 #         train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
 #     else:
@@ -111,6 +112,11 @@ if args.coref == 'True':
     args.dev_file = "coref/"+args.dev_file
     args.test_file = "coref/"+args.test_file
 print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
+=======
+#     train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+# else:
+#     train_file,dev_file,test_file="train.json","dev.json","test.json"
+>>>>>>> main
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
