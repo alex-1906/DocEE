@@ -27,6 +27,7 @@ print(random_string)
 parser = argparse.ArgumentParser()
 parser.add_argument("--random_seed", type=int, default=123, help="random seed")
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
+
 parser.add_argument("--train_file", type=str, default="train.json", help="train file")
 parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
 parser.add_argument("--test_file", type=str, default="test.json", help="test file")
@@ -97,6 +98,7 @@ with open("data/Ontology/feasible_roles.json") as f:
 max_n = 9
 
 # if args.overfit_test:
+
 #     if args.coref:
 #         train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
 #     else:
@@ -111,6 +113,7 @@ if args.coref == 'True':
     args.dev_file = "coref/"+args.dev_file
     args.test_file = "coref/"+args.test_file
 print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
+
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
