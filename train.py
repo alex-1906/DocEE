@@ -25,6 +25,7 @@ random_string = ''.join(random.SystemRandom().choice(string.ascii_letters + stri
 print(random_string)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--random_seed", type=int, default=123, help="random seed")
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
 parser.add_argument("--train_file", type=str, default="train.json", help="train file")
 parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
@@ -62,8 +63,8 @@ torch.cuda.empty_cache()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 g = torch.Generator()
-g.manual_seed(42)
-set_seed(42)
+g.manual_seed(args.random_seed)
+set_seed(args.random_seed)
 
 # %%
 
