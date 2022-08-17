@@ -25,14 +25,17 @@ random_string = ''.join(random.SystemRandom().choice(string.ascii_letters + stri
 print(random_string)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--random_seed", type=int, default=123, help="random seed")
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
-parser.add_argument("--train_file", type=str, default="train.json", help="File for Training")
-parser.add_argument("--dev_file", type=str, default="dev.json", help="File for Training")
-parser.add_argument("--test_file", type=str, default="test.json", help="File for Training")
 
+parser.add_argument("--train_file", type=str, default="train.json", help="train file")
+parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
+parser.add_argument("--test_file", type=str, default="test.json", help="test file")
+#parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
-parser.add_argument("--shared_roles", type=str, default=True, help="Shared Role Types")
+parser.add_argument("--shared_roles", type=str, default=False, help="Shared Role Types")
+parser.add_argument("--coref", type=str, default=False, help="Use coref mentions for embedding")
 
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
 parser.add_argument("--at_inference", type=str, default=False, help="use at labels for inference")
@@ -61,8 +64,8 @@ torch.cuda.empty_cache()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 g = torch.Generator()
-g.manual_seed(42)
-set_seed(42)
+g.manual_seed(args.random_seed)
+set_seed(args.random_seed)
 
 # %%
 
@@ -80,7 +83,8 @@ lm_model = AutoModel.from_pretrained(
 )
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-if args.shared_roles:
+if args.shared_roles == 'True':
+    print(f"\nshared roles\n")
     with open("data/Ontology/roles_shared.json") as f:
         relation_types = json.load(f)
 else:
@@ -94,9 +98,22 @@ with open("data/Ontology/feasible_roles.json") as f:
 max_n = 9
 
 # if args.overfit_test:
-#     train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+
+#     if args.coref:
+#         train_file,dev_file,test_file="coref/train_medium.json","coref/train_medium.json","coref/train_medium.json"
+#     else:
+#         train_file,dev_file,test_file="train_medium.json","train_medium.json","train_medium.json"
 # else:
-#     train_file,dev_file,test_file="train.json","dev.json","test.json"
+#     if args.coref:
+#         train_file,dev_file,test_file="coref/train_medium.json","coref/dev.json","coref/test.json"
+#     else: 
+#         train_file,dev_file,test_file="train_medium.json","dev.json","test.json"
+if args.coref == 'True':
+    args.train_file = "coref/"+args.train_file
+    args.dev_file = "coref/"+args.dev_file
+    args.test_file = "coref/"+args.test_file
+print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
+
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
     tokenizer=tokenizer,
@@ -213,6 +230,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                         eae_event_list.append([])
 
 
+
     if args.full_task:
         e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
         e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"])/4
@@ -238,7 +256,10 @@ for epoch in tqdm.tqdm(range(args.epochs)):
 
 # --------- Evaluation on Test  ------------#
 print("---- TEST EVAL -----")
-mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
+try:
+    mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
+except:
+    pass
 mymodel.eval()
 eae_event_list,e2e_event_list = [],[]
 doc_id_list = []

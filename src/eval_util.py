@@ -49,6 +49,7 @@ def get_eval(event_list,token_maps,doc_id_list):
                         span_matches.append((arg['entity_id'],(arg['start'],arg['end']),arg['text'],(g_arg['start'],g_arg['end']),g_arg['text']))
                         idf_h_matched += 1
                         idf_c_matched += 1
+
                         if g_arg['role'] == arg['role']:
                             clf_h_matched += 1
                             clf_c_matched += 1

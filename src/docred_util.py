@@ -54,6 +54,41 @@ def getVertexAllEntities(row):
         }])       
     return vertexSet
 
+def getVertexCorefs(row):
+    vertexSet = []
+    for em in row.event_mentions:
+        t = em["trigger"]
+        et = em['event_type']
+        vertexSet.append([{
+            'pos':[t["start"],t["end"]],
+            'type':et+"."+"TRIGGER",
+            'sent_id':t["sent_idx"],
+            'name':t["text"],
+            'id':em["id"]
+        }])
+        for a in em["arguments"]:
+            ent_mention = []
+            ent_mention.append({
+                'pos':[a["start"],a["end"]],
+                'type':a["entity_type"],
+                #'sent_id':-1,
+                'name':a["text"],
+                'id':a["entity_id"]
+            })
+            for c in a['corefs']:
+                ent_mention.append({
+                    'pos':[c["start"],c["end"]],
+                    'type':c["entity_type"],
+                    #'sent_id':-1,
+                    'name':c["text"],
+                    'id':c["entity_id"]
+                 })
+            vertexSet.append(
+                ent_mention
+            )
+    return vertexSet
+
+
 def getLabels(row):
     labels = []
     for event in row.event_mentions:
@@ -84,9 +119,13 @@ def getSents(row):
         sents.append(sent_tokens)
     return sents
     
-def to_docred(df,all_entities=True):
+def to_docred(df,all_entities=True,coref=False):
     if all_entities:
         df["vertexSet"] = df.apply(getVertexAllEntities,axis=1)
+    else:
+        df["vertexSet"] = df.apply(getVertex,axis=1)
+    if coref:
+        df["vertexSet"] = df.apply(getVertexCorefs,axis=1)
     else:
         df["vertexSet"] = df.apply(getVertex,axis=1)
     df["labels"] = df.apply(getLabels,axis=1)

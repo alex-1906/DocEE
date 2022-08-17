@@ -15,10 +15,10 @@ def tokenization_and_vectorization(tokens, entities, tokenizer):
     entities: list containing list of tuples per entity. each touple marks a mention span.
     tokenizer: tokenizer for final tokenization of word tokens into subtokens
     """
-
+    #(entities)
     # flatten mention span list
     mention_spans = [(mention, i) for i, ent in enumerate(entities) for mention in ent]
-
+    #print(mention_spans)
     # for each token create a binary vector indicating to which mention(s) it belongs
     tmap = np.zeros((len(tokens), len(mention_spans)))
     for i, span in enumerate(mention_spans):

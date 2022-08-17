@@ -1,14 +1,15 @@
 #%%
 import pandas as pd
+from src.eval_util import get_df, get_eval
+df = pd.read_json('data/WikiEvents/preprocessed/train_medium.json')
+df_co = pd.read_json('data/WikiEvents/preprocessed/coref/train_medium.json')
 
-df = pd.read_json("data/WikiEvents/preprocessed/train_large.json")
-
-#%%
-df = df.drop(df[len(df.labels)==0].index)
-
-# %%
-df['len'] = df['labels'].apply(lambda x: len(x))
-df = df.drop(df[df['len']==0].index)
 # %%
 df
+# %%
+for idx,row in df.iterrows():
+    for e in row.vertexSet:
+        if len(e) > 1:
+            print(e)
+            break
 # %%
