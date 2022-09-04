@@ -182,7 +182,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             # --------- E2E Task  ------------#
 
-            #Länge der spans ändert sich nicht? Subsampling wird nicht durchgeführt
+            #Länge der spans ändert sich nicht? downsampling wird nicht durchgeführt
             candidates = candidate_spans[0]
             print(len(candidates))
             candidates = [random.sample(x, min(500, len(x))) for x in candidates]

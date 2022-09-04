@@ -20,7 +20,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         n_relations = len(relation_types)-1
-        
+        print()
         self.config = config
         self.model = model
 
