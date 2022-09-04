@@ -1,4 +1,5 @@
 #%%
+from datetime import datetime
 import argparse
 import pandas as pd
 import json
@@ -71,7 +72,7 @@ set_seed(args.random_seed)
 
 #------- Model Configuration -------#
 
-language_model = 'bert-base-uncased'
+language_model = 'bert-large-uncased'
 lm_config = AutoConfig.from_pretrained(
     language_model,
     num_labels=10,
@@ -81,7 +82,7 @@ lm_model = AutoModel.from_pretrained(
     from_tf=False,
     config=lm_config,
 )
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+tokenizer = AutoTokenizer.from_pretrained("bert-large-cased")
 
 if args.shared_roles == 'True':
     print(f"\nshared roles\n")
@@ -169,6 +170,7 @@ step_global = 0
 eae_best_compound_f1, e2e_best_compound_f1  = 0.0,0.0
 for epoch in tqdm.tqdm(range(args.epochs)):
     losses = []
+    times,i_times = [],[]
     eae_event_list,e2e_event_list = [],[]
     doc_id_list = []
     token_maps = []
@@ -179,16 +181,31 @@ for epoch in tqdm.tqdm(range(args.epochs)):
             #with torch.autograd.detect_anomaly():
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             # --------- E2E Task  ------------#
+
+            #Länge der spans ändert sich nicht? Subsampling wird nicht durchgeführt
+            candidates = candidate_spans[0]
+            print(len(candidates))
+            candidates = [random.sample(x, min(500, len(x))) for x in candidates]
+            print(len(candidates))
+            for ent in entity_spans[0]:
+                candidates.append(ent)
+            print(len(candidates))
+
+            candidate_spans = [candidates]
+            t_start = datetime.now()
             if args.mixed_precision:
                 with autocast():
                     mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
             else:
                 mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-
-
+            t_end = datetime.now()
+            t_time = (t_end - t_start).total_seconds()
+            #times.append(t_time)
             wandb.log({"mention_loss": mention_loss.item()}, step=step_global) 
             wandb.log({"argex_loss": argex_loss.item()}, step=step_global) 
             wandb.log({"loss": loss.item()}, step=step_global)
+            #wandb.log({"training_time": sum(times)/len(times)}, step=step_global)
+            wandb.log({"training_time":t_time}, step=step_global)
 
             losses.append(loss.item())
             progress_bar.set_postfix({"L":f"{sum(losses)/len(losses):.2f}"})
@@ -214,10 +231,16 @@ for epoch in tqdm.tqdm(range(args.epochs)):
             
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
             # --------- E2E Task  ------------#
+            i_start = datetime.now()
             with torch.no_grad():
                 if args.full_task:
                     _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
                 _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+                i_end = datetime.now()
+                i_time = (i_end - i_start).total_seconds()
+                #i_times.append(i_time)
+                #wandb.log({"inference_time": sum(i_times)/len(i_times)}, step=step_global)
+                wandb.log({"inference_time":i_time}, step=step_global)
                 for batch_i in range(input_ids.shape[0]):
                     doc_id_list.append(doc_ids[batch_i])
                     token_maps.append(token_map[batch_i])

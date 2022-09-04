@@ -24,12 +24,12 @@ class Encoder(nn.Module):
         self.config = config
         self.model = model
 
-        self.entity_anchor = nn.Parameter(torch.zeros((67, 768)))
+        self.entity_anchor = nn.Parameter(torch.zeros((67, 1024)))
         torch.nn.init.uniform_(self.entity_anchor, a=-1.0, b=1.0)
         
-        self.relation_embeddings = nn.Parameter(torch.zeros((n_relations,3*768)))
+        self.relation_embeddings = nn.Parameter(torch.zeros((n_relations,3*1024)))
         torch.nn.init.uniform_(self.relation_embeddings, a=-1.0, b=1.0)            
-        self.nota_embeddings = nn.Parameter(torch.zeros((20,3*768)))
+        self.nota_embeddings = nn.Parameter(torch.zeros((20,3*1024)))
         torch.nn.init.uniform_(self.nota_embeddings, a=-1.0, b=1.0)
 
 
