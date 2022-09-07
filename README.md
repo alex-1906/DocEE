@@ -9,7 +9,7 @@
 
 # Data
 The WikiEvents task data can be found [here](https://github.com/raspberryice/gen-arg).
-To use it with the code in this repo, place the training, dev, test (json-)files into the corresponding folders in the data directory.
+To use it with the code in this repo, place the raw training, dev, test (json-)files into the corresponding folders in the data directory.
 
 # Setup
 **Dependencies:**
@@ -29,7 +29,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 **Preprocessing:**  
-Make sure to place the raw train, dev, test (jsonl-) files in the corresponding folders. 
+Make sure to place the raw train, dev, test (jsonl-) files in the corresponding folders, do not forget the coref folder. 
 For creation of the Ontology files containing feasible roles, relation types and mention types, run preprocessing with --ont_files=True 
 
 ```
@@ -37,12 +37,21 @@ python preprocess.py --ont_files=True
 ```
 
 # Training
-Example of training a model without soft_mention and at_inference:
+Example of training a model on the subtask of event argument extraction with shared roles:
 ```
-python train.py --learning_rate=1e-5 --num_epochs=5 --soft_mention=False --at_inference=False 
+python train.py --shared_roles=True --learning_rate=1e-5 --num_epochs=100 --batch_size=1 --random_seed=42
 ```
 
-Example of training a model with soft_mention and at_inference:
+Example of training the same model on the full task :
 ```
-python train.py --learning_rate=1e-6 --num_epochs=5 --soft_mention=True --at_inference=True 
+python train.py --full_task=True --shared_roles=True --learning_rate=1e-5 --num_epochs=100 --batch_size=1 --random_seed=42
+```
+
+Please note, that the execution of the train.py file already includes the evaluation on the dev set after each epoch. The weights corresponding with the best run on the dev set are then saved as checkpoint and loaded for the evaluation on the test set at the end of the train.py file.
+
+We additionally provide scripts, which can be run by the following command:
+```
+bash train_wikievents_subtask.sh
+
+bash train_wikievents_fulltask.sh
 ```
