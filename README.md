@@ -1,5 +1,9 @@
 # DocEE - Document-level Event Extraction 
 
+![Architecture Overview](architecture_overview.png)
+
+This repository contains the code for the bachelor thesis "Document-Level Event Extraction"
+
 # Table of Contents
 1. [Data](#data)
 2. [Setup Dependencies](#dependencies)
