@@ -14,22 +14,26 @@ from src.losses import ATLoss
 from src.util import process_long_input
 from transformers import BertConfig, RobertaConfig, DistilBertConfig, XLMRobertaConfig
 from itertools import groupby
+import random
 #%%
 class Encoder(nn.Module):
-    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention, at_inference):
+    def __init__(self, config, model, cls_token_id, sep_token_id, relation_types, mention_types, feasible_roles, soft_mention, at_inference, num_trigger_prototypes):
         super().__init__()
 
         n_relations = len(relation_types)-1
-        print()
         self.config = config
         self.model = model
+        if num_trigger_prototypes == 2:
+            prototypes = 116
+        else:
+            prototypes = 67
 
-        self.entity_anchor = nn.Parameter(torch.zeros((67, 1024)))
+        self.entity_anchor = nn.Parameter(torch.zeros((prototypes, 768)))
         torch.nn.init.uniform_(self.entity_anchor, a=-1.0, b=1.0)
         
-        self.relation_embeddings = nn.Parameter(torch.zeros((n_relations,3*1024)))
+        self.relation_embeddings = nn.Parameter(torch.zeros((n_relations,3*768)))
         torch.nn.init.uniform_(self.relation_embeddings, a=-1.0, b=1.0)            
-        self.nota_embeddings = nn.Parameter(torch.zeros((20,3*1024)))
+        self.nota_embeddings = nn.Parameter(torch.zeros((20,3*768)))
         torch.nn.init.uniform_(self.nota_embeddings, a=-1.0, b=1.0)
 
 
@@ -39,7 +43,7 @@ class Encoder(nn.Module):
 
         self.soft_mention = soft_mention
         self.at_inference = at_inference
-        self.k_mentions = 50
+        self.k_mentions = 15
                 
         self.cls_token_id = cls_token_id
         self.sep_token_id = sep_token_id
@@ -89,6 +93,11 @@ class Encoder(nn.Module):
                 # ---------- Candidate span embeddings ------------
                 mention_candidates = []
                 candidates_attentions = []
+
+                #candidate_spans = [random.sample(x, min(500, len(x))) for x in candidate_spans[batch_i]]
+                #for ent in entity_spans[0]:
+                #    candidate_spans.append(ent)
+                
                 for span in candidate_spans[batch_i]:
                     mention_embedding = torch.mean(sequence_output[batch_i, span[0]:span[1]+1,:], 0)
                     mention_attention = torch.mean(attention[batch_i,:,span[0]:span[1]+1], 1)
