@@ -203,5 +203,10 @@ def get_mention_types_file():
     with open("data/Ontology/mention_types.json", "w") as f:
         json.dump(mention_types,f)
 
+    large_mention_types = entity_types + event_types + event_types
+
+    with open("data/Ontology/mention_types_large.json", "w") as f:
+        json.dump(large_mention_types,f)
+
 #%%
 

@@ -35,8 +35,12 @@ def get_eval(event_list,token_maps,doc_id_list):
 
     idf_pred, idf_gold, idf_h_matched, idf_c_matched = 0,0,0,0
     clf_pred, clf_gold, clf_h_matched, clf_c_matched = 0,0,0,0
+
+    trigger_pred, trigger_gold, trigger_idf, trigger_clf = 0,0,0,0
+
     span_matches = []
     coref_span_matches = []
+    trigger_matches = []
     for idx, row in df.iterrows(): 
         events = row['pred_events']
         gold_events = row['event_mentions']
@@ -65,6 +69,15 @@ def get_eval(event_list,token_maps,doc_id_list):
             for arg in e['arguments']:
                 idf_pred += 1
             clf_pred, clf_gold = idf_pred, idf_gold
+
+            if ge['trigger']['start'] == e['trigger']['start'] and ge['trigger']['end'] == e['trigger']['end']:
+                trigger_idf += 1
+                if ge['event_type'] == e['event_type']:
+                    trigger_clf += 1
+
+            trigger_gold += 1
+            trigger_pred += 1
+            
     
     #----- Identification P,R,F1 -----
     idf_h_p, idf_h_r, idf_h_f1 = compute_f1(idf_pred, idf_gold, idf_h_matched)
@@ -73,6 +86,10 @@ def get_eval(event_list,token_maps,doc_id_list):
     #----- Classification P,R,F1 -----
     clf_h_p, clf_h_r, clf_h_f1 = compute_f1(idf_pred, idf_gold, clf_h_matched)
     clf_c_p, clf_c_r, clf_c_f1 = compute_f1(idf_pred, idf_gold, clf_c_matched)
+
+    #----- Trigger Idf,Clf P,R,F1 -----
+    trigger_idf_p, trigger_idf_r, trigger_idf_f1 = compute_f1(trigger_pred, trigger_gold, trigger_idf)
+    trigger_clf_p, trigger_clf_r, trigger_clf_f1 = compute_f1(trigger_pred, trigger_gold, trigger_clf)
 
 
     report = {
@@ -102,6 +119,20 @@ def get_eval(event_list,token_maps,doc_id_list):
                 'Precision':round(clf_c_p,2),
                 'Recall':round(clf_c_r,2),
                 'F1':round(clf_c_f1,2)
+            }
+        },
+        'Trigger':{
+            'Identification':{
+                'Matches':round(trigger_idf,2),
+                'Precision':round(trigger_idf_p,2),
+                'Recall':round(trigger_idf_r,2),
+                'F1':round(trigger_idf_f1,2)
+            },
+            'Classification':{
+                'Matches':round(trigger_clf,2),
+                'Precision':round(trigger_clf_p,2),
+                'Recall':round(trigger_clf_r,2),
+                'F1':round(trigger_clf_f1,2)
             }
         }
     }
@@ -226,4 +257,4 @@ def get_eae_eval(doc_ids_list,event_list):
             return idf_h_p, idf_h_r, idf_h_f1, idf_c_p, idf_c_r, idf_c_f1
     
             
-                
+
