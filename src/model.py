@@ -26,7 +26,7 @@ class Encoder(nn.Module):
         if num_trigger_prototypes == 2:
             prototypes = 116
         else:
-            prototypes = 67
+            prototypes = 68
 
         self.entity_anchor = nn.Parameter(torch.zeros((prototypes, 768)))
         torch.nn.init.uniform_(self.entity_anchor, a=-1.0, b=1.0)
@@ -114,8 +114,14 @@ class Encoder(nn.Module):
                 span_scores = embs.unsqueeze(1) * self.entity_anchor.unsqueeze(0)
                 span_scores = torch.sum(span_scores, dim=-1)
                 span_scores_max, class_for_span = torch.max(span_scores, dim=-1)
-                scores_for_max, max_spans = torch.topk(span_scores_max.view(-1), min(self.k_mentions, embs.size(0)), dim=0)
-                class_for_max_span = class_for_span[max_spans]
+
+                max_spans = []
+                class_for_max_span = []
+                for i in range(len(class_for_span)):
+                    if class_for_span[i] != 67:
+                        max_spans.append(i)
+                        class_for_max_span.append(class_for_span[i])
+                #print(len(max_spans), "spans detected")
 
                 if self.training:
                     # ---------- Mention Loss ------------
@@ -157,6 +163,7 @@ class Encoder(nn.Module):
                         mention_targets = torch.zeros(len(candidate_spans[batch_i]),dtype=torch.long, device = self.model.device
                         
                         )
+                        mention_targets += len(self.mention_types)
                         span_scores.to(self.model.device)
 
 
@@ -166,14 +173,16 @@ class Encoder(nn.Module):
                             for ent,t in zip(entity_spans[batch_i],entity_types[batch_i]):
                                 if [c] == ent:
                                     mention_targets[idx] = self.mention_types.index(t)
-                        mention_loss += self.ce_loss(span_scores,mention_targets)
+                                    #print(t, self.mention_types.index(t))
+                        #print(span_scores.size(), mention_targets.size())
+                        mention_loss += self.at_loss(span_scores, torch.nn.functional.one_hot(mention_targets, num_classes=68), th_pos=-1)
                         counter_mention += 1 
                         #print(f"mention_loss: {mention_loss}")
 
 
             # ARGUMENT ROLE LABELING
             
-            if not e2e:
+            if not e2e or self.training:
                 # ---------- Pooling Entity Embeddings and Attentions ------------
                 entity_embeddings = []
                 entity_attentions = []
@@ -357,6 +366,6 @@ class Encoder(nn.Module):
 
 
         if(counter == 0) and self.training:
-            return mention_loss/sequence_output.size(0),torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(argex_loss+mention_loss,requires_grad=True), batch_events
+            return mention_loss/sequence_output.size(0),torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(mention_loss,requires_grad=True), batch_events
         else:
-            return mention_loss/sequence_output.size(0),argex_loss/counter,(mention_loss+argex_loss)/counter, batch_events
+            return mention_loss/sequence_output.size(0),argex_loss/counter,(mention_loss)/counter, batch_events
