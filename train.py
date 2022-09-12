@@ -13,7 +13,7 @@ from transformers import (AutoConfig, AutoModel, AutoTokenizer, BertConfig,
                           DistilBertConfig, RobertaConfig, XLMRobertaConfig)
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from src.data import collate_fn, parse_file
-from src.eval_util import get_eval, get_eval_by_id
+from src.eval_util import get_eval, get_eval_by_id, get_eval_new
 from src.model import Encoder
 from src.util import set_seed
 import wandb
@@ -26,15 +26,16 @@ random_string = ''.join(random.SystemRandom().choice(string.ascii_letters + stri
 print(random_string)
 
 parser = argparse.ArgumentParser()
+
 parser.add_argument("--random_seed", type=int, default=123, help="random seed")
 parser.add_argument("--project", type=str, default="GPU", help="project name for wandb")
 
-parser.add_argument("--train_file", type=str, default="train.json", help="train file")
+parser.add_argument("--train_file", type=str, default="dev.json", help="train file")
 parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
-parser.add_argument("--test_file", type=str, default="test.json", help="test file")
+parser.add_argument("--test_file", type=str, default="dev.json", help="test file")
 #parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
-parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
+parser.add_argument("--full_task", type=str, default=True, help="True for full task, False for  eae subtask")
 parser.add_argument("--shared_roles", type=str, default=False, help="Shared Role Types")
 parser.add_argument("--coref", type=str, default=False, help="Use coref mentions for embedding")
 
@@ -45,7 +46,7 @@ parser.add_argument("--pooling", type=str, default="mean", help="mention pooling
 
 parser.add_argument("--epochs", type=int, default=5, help="number of epochs")
 parser.add_argument("--warmup_epochs", type=int, default=1, help="number of warmup epochs (during which learning rate increases linearly from zero to set learning rate)")
-parser.add_argument("--batch_size", type=int, default=1, help="eval batch size")
+parser.add_argument("--batch_size", type=int, default=1, help="batch size")
 parser.add_argument("--shuffle", type=str, default=False, help="randomly shuffles data samples")
 parser.add_argument("--mixed_precision", type=str, default=False, help="use mixed precision training")
 
@@ -122,7 +123,7 @@ dev_loader = DataLoader(
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
-    batch_size=2,
+    batch_size=args.batch_size,
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 test_loader = DataLoader(
@@ -130,7 +131,7 @@ test_loader = DataLoader(
     tokenizer=tokenizer,
     relation_types=relation_types,
     max_candidate_length=max_n),
-    batch_size=2,
+    batch_size=args.batch_size,
     shuffle=args.shuffle,
     collate_fn=collate_fn)
 
@@ -164,23 +165,24 @@ mymodel.to(device)
 # ---------- Train Loop -----------#
 
 step_global = 0
-eae_best_compound_f1, e2e_best_compound_f1  = 0.0,0.0
+best_compound_f1 = 0.0
 for epoch in tqdm.tqdm(range(args.epochs)):
     losses = []
-    times,i_times = [],[]
-    eae_event_list,e2e_event_list = [],[]
+    event_list = []
     doc_id_list = []
     token_maps = []
     mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
+            
             step_global += args.batch_size
             #with torch.autograd.detect_anomaly():
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
 
             #-------- Skip long docs ---------
-            if input_ids.size(1) > 2000:
-               continue
+            if input_ids.size(1) > 1500:
+                print(f"--------- long doc {input_ids.size(1)} skipped ---------")
+                continue
 
             #---------Länge der spans ändert sich nicht? downsampling wird nicht durchgeführt---------
 
@@ -192,18 +194,13 @@ for epoch in tqdm.tqdm(range(args.epochs)):
             #candidate_spans = [candidates]
 
             t_start = datetime.now()
-            if args.mixed_precision:
-                with autocast():
-                    mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
-            else:
-                mention_loss,argex_loss,loss,_ = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            mention_loss,argex_loss,loss,_ = mymodel(doc_ids,input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
             t_end = datetime.now()
             t_time = (t_end - t_start).total_seconds()
-            #times.append(t_time)
+            
             wandb.log({"mention_loss": mention_loss.item()}, step=step_global) 
             wandb.log({"argex_loss": argex_loss.item()}, step=step_global) 
             wandb.log({"loss": loss.item()}, step=step_global)
-            #wandb.log({"training_time": sum(times)/len(times)}, step=step_global)
             wandb.log({"training_time":t_time}, step=step_global)
 
             losses.append(loss.item())
@@ -220,64 +217,54 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                 optimizer.step()
 
             lr_scheduler.step()
-
-            #optimizer.zero_grad()
             mymodel.zero_grad()
             del mention_loss,argex_loss,loss,_
+
+
+# ----------- Evaluation on Dev --------------            
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
-            
+     
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            # --------- E2E Task  ------------#
+            if input_ids.size(1) > 1500:
+                print(f"--------- long doc {input_ids.size(1)} skipped ---------")
+                continue
+            
             i_start = datetime.now()
             with torch.no_grad():
-                if args.full_task:
-                    _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
-                _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+                _,_,_,events = mymodel(doc_ids,input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
                 i_end = datetime.now()
                 i_time = (i_end - i_start).total_seconds()
-                #i_times.append(i_time)
-                #wandb.log({"inference_time": sum(i_times)/len(i_times)}, step=step_global)
                 wandb.log({"inference_time":i_time}, step=step_global)
+
                 for batch_i in range(input_ids.shape[0]):
                     doc_id_list.append(doc_ids[batch_i])
                     token_maps.append(token_map[batch_i])
+
+                    # Block wird nicht mehr gebraucht
                     try:
-                        if args.full_task:
-                            e2e_event_list.append(e2e_events[batch_i])
-                        eae_event_list.append(eae_events[batch_i])
+                        event_list.append(events[batch_i])
                     except:
-                        e2e_event_list.append([])
-                        eae_event_list.append([])
+                        print("----------in except block---------")
+                        event_list.append([])
 
-
-
+    report = get_eval_new(event_list,token_maps,doc_id_list)
+    print(report)
     if args.full_task:
-        e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
-        e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"] + e2e_report["Trigger"]["Identification"]["F1"] + e2e_report["Trigger"]["Classification"]["F1"])/6
-    eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
-    eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-    #to check if offset F1s match with ID F1s
-    #eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
-    wandb.log({"eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
-    if args.full_task:
-        wandb.log({"e2e_Compound_F1":e2e_compound_f1 }, step=step_global)  
-        wandb.log({"e2e_Identification_Head_F1":e2e_report["Identification"]["Head"]["F1"] }, step=step_global)
-        wandb.log({"e2e_Identification_Coref_F1":e2e_report["Identification"]["Coref"]["F1"] }, step=step_global)
-        wandb.log({"e2e_Classification_Head_F1":e2e_report["Classification"]["Head"]["F1"] }, step=step_global)
-        wandb.log({"e2e_Classification_Coref_F1":e2e_report["Classification"]["Coref"]["F1"] }, step=step_global)  
-        wandb.log({"e2e_Trigger_Identification_F1":e2e_report["Trigger"]["Identification"]["F1"] }, step=step_global)
-        wandb.log({"e2e_Trigger_Classification_F1":e2e_report["Trigger"]["Classification"]["F1"] }, step=step_global)
+        compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
+    else:
+        compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"])/4
 
-    wandb.log({"eae_Compound_F1":eae_compound_f1 }, step=step_global)      
-    wandb.log({"eae_Identification_Head_F1":eae_report["Identification"]["Head"]["F1"] }, step=step_global)
-    wandb.log({"eae_Identification_Coref_F1":eae_report["Identification"]["Coref"]["F1"] }, step=step_global)
-    wandb.log({"eae_Classification_Head_F1":eae_report["Classification"]["Head"]["F1"] }, step=step_global)
-    wandb.log({"eae_Classification_Coref_F1":eae_report["Classification"]["Coref"]["F1"] }, step=step_global)  
-    wandb.log({"eae_Trigger_Identification_F1":eae_report["Trigger"]["Identification"]["F1"] }, step=step_global)
-    wandb.log({"eae_Trigger_Classification_F1":eae_report["Trigger"]["Classification"]["F1"] }, step=step_global)   
-    if eae_compound_f1 > eae_best_compound_f1:
+    wandb.log({"Dev_Compound_F1":compound_f1 }, step=step_global)      
+    wandb.log({"Dev_Identification_Head_F1":report["Identification"]["Head"]["F1"] }, step=step_global)
+    wandb.log({"Dev_Identification_Coref_F1":report["Identification"]["Coref"]["F1"] }, step=step_global)
+    wandb.log({"Dev_Classification_Head_F1":report["Classification"]["Head"]["F1"] }, step=step_global)
+    wandb.log({"Dev_Classification_Coref_F1":report["Classification"]["Coref"]["F1"] }, step=step_global)  
+    wandb.log({"Dev_Trigger_Identification_F1":report["Trigger"]["Identification"]["F1"] }, step=step_global)
+    wandb.log({"Dev_Trigger_Classification_F1":report["Trigger"]["Classification"]["F1"] }, step=step_global)   
+
+    if compound_f1 > best_compound_f1:
         torch.save(mymodel.state_dict(), f"checkpoints/{args.project}_{random_string}.pt")
 
 # --------- Evaluation on Test  ------------#
@@ -285,53 +272,43 @@ print("---- TEST EVAL -----")
 try:
     mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
 except:
+    print("Could not load checkpoint")
     pass
 mymodel.eval()
-eae_event_list,e2e_event_list = [],[]
+event_list = []
 doc_id_list = []
 token_maps = []
 with tqdm.tqdm(test_loader) as progress_bar:
     for sample in progress_bar:
-        
         input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-        # --------- E2E Task  ------------#
+        if input_ids.size(1) > 1500:
+                print(f"--------- long doc {input_ids.size(1)} skipped ---------")
+                continue
         with torch.no_grad():
-            if args.full_task:
-                _,_,_,e2e_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=True)
-            _,_,_,eae_events = mymodel(input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=False)
+            _,_,_,events = mymodel(doc_ids,input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=args.full_task)
+            
             for batch_i in range(input_ids.shape[0]):
                 doc_id_list.append(doc_ids[batch_i])
                 token_maps.append(token_map[batch_i])
                 try:
-                    if args.full_task:
-                        e2e_event_list.append(e2e_events[batch_i])
-                    eae_event_list.append(eae_events[batch_i])
+                    event_list.append(events[batch_i])
+                    #Block wird nicht gebraucht
                 except:
-                    e2e_event_list.append([])
-                    eae_event_list.append([])
-
+                    print("in exception block")
+                    event_list.append([])
+report = get_eval_new(event_list,token_maps,doc_id_list)
+print(report)
 if args.full_task:
-    e2e_report = get_eval(e2e_event_list,token_maps,doc_id_list)
-    e2e_compound_f1 = (e2e_report["Identification"]["Head"]["F1"] + e2e_report["Identification"]["Coref"]["F1"] + e2e_report["Classification"]["Head"]["F1"] + e2e_report["Classification"]["Coref"]["F1"] + e2e_report["Trigger"]["Identification"]["F1"] + e2e_report["Trigger"]["Classification"]["F1"])/6
-eae_report = get_eval(eae_event_list,token_maps,doc_id_list)
-eae_compound_f1 = (eae_report["Identification"]["Head"]["F1"] + eae_report["Identification"]["Coref"]["F1"] + eae_report["Classification"]["Head"]["F1"] + eae_report["Classification"]["Coref"]["F1"])/4
-#to check if offset F1s match with ID F1s
-eae_report = get_eval_by_id(eae_event_list,token_maps,doc_id_list)
-wandb.log({"Test_eae_Compound_F1_id":eae_compound_f1 }, step=step_global) 
-if args.full_task:
-    wandb.log({"Test_e2e_Compound_F1":e2e_compound_f1 }, step=step_global)  
-    wandb.log({"Test_e2e_Identification_Head_F1":e2e_report["Identification"]["Head"]["F1"] }, step=step_global)
-    wandb.log({"Test_e2e_Identification_Coref_F1":e2e_report["Identification"]["Coref"]["F1"] }, step=step_global)
-    wandb.log({"Test_e2e_Classification_Head_F1":e2e_report["Classification"]["Head"]["F1"] }, step=step_global)
-    wandb.log({"Test_e2e_Classification_Coref_F1":e2e_report["Classification"]["Coref"]["F1"] }, step=step_global)  
-    wandb.log({"Test_e2e_Trigger_Identification_F1":e2e_report["Trigger"]["Identification"]["F1"] }, step=step_global)
-    wandb.log({"Test_e2e_Trigger_Classification_F1":e2e_report["Trigger"]["Classification"]["F1"] }, step=step_global)
+    compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
+else:
+    compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"])/4
 
-wandb.log({"Test_eae_Compound_F1":eae_compound_f1 }, step=step_global)      
-wandb.log({"Test_eae_Identification_Head_F1":eae_report["Identification"]["Head"]["F1"] }, step=step_global)
-wandb.log({"Test_eae_Identification_Coref_F1":eae_report["Identification"]["Coref"]["F1"] }, step=step_global)
-wandb.log({"Test_eae_Classification_Head_F1":eae_report["Classification"]["Head"]["F1"] }, step=step_global)
-wandb.log({"Test_eae_Classification_Coref_F1":eae_report["Classification"]["Coref"]["F1"] }, step=step_global)  
-        
+wandb.log({"Test_Compound_F1":compound_f1 }, step=step_global)      
+wandb.log({"Test_Identification_Head_F1":report["Identification"]["Head"]["F1"] }, step=step_global)
+wandb.log({"Test_Identification_Coref_F1":report["Identification"]["Coref"]["F1"] }, step=step_global)
+wandb.log({"Test_Classification_Head_F1":report["Classification"]["Head"]["F1"] }, step=step_global)
+wandb.log({"Test_Classification_Coref_F1":report["Classification"]["Coref"]["F1"] }, step=step_global)  
+wandb.log({"Test_Trigger_Identification_F1":report["Trigger"]["Identification"]["F1"] }, step=step_global)
+wandb.log({"Test_Trigger_Classification_F1":report["Trigger"]["Classification"]["F1"] }, step=step_global)  
 
 #%%

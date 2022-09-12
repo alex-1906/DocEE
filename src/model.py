@@ -69,7 +69,7 @@ class Encoder(nn.Module):
 
    
         
-    def forward(self, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text, e2e=False):
+    def forward(self, doc_ids, input_ids, attention_mask, candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, batch_text, e2e=False):
         sequence_output, attention = self.encode(input_ids, attention_mask)
         argex_loss = torch.zeros((1)).to(sequence_output)
         mention_loss = torch.zeros((1)).to(sequence_output)
@@ -85,8 +85,9 @@ class Encoder(nn.Module):
             entity_ids = [[] for _ in range(sequence_output.shape[0])]
             relation_labels = [[] for _ in range(sequence_output.shape[0])]
                     
-        for batch_i in range(sequence_output.size(0)):
-
+        #for batch_i in range(sequence_output.size(0)):
+        for batch_i in range(1):
+            #print("----------- NEW DOCUMENT ----------")
             if e2e:
                 # MENTION DETECTION
 
@@ -211,18 +212,24 @@ class Encoder(nn.Module):
             relation_candidates = []
             localized_context = []
             concat_embs = []
+
             
             #print(f"entity_attentions contains nans: {entity_attentions.isnan().any()}")
             triggers = []
             objects = []
             for e in range(entity_embeddings.shape[0]):
+                #if not self.training:
+                       # print(entity_types[batch_i][e])
                 if entity_types[batch_i][e].split(".")[-1] == "TRIGGER":
+                    
                     triggers.append(e)
                 else:
                     objects.append(e)
-
+            
+            count = 0
             for t in triggers:
                 for o in objects:
+                    count +=1 
                     relation_candidates.append((t,o))
 
                     A_s = entity_attentions[t,:,:]
@@ -238,7 +245,22 @@ class Encoder(nn.Module):
                     concat_emb = torch.cat((entity_embeddings[e],entity_embeddings[o],c),0)
                     concat_embs.append(concat_emb)
             if(len(localized_context) == 0):
-                continue
+                #print("-----------no relations found-----------")
+                #print(f"length of concat_embs is {len(concat_embs)}")
+                #print(f"length of entity_embessings is {len(entity_embeddings)}")
+                #print(f"length of relation_candidates is {len(relation_candidates)}")
+                #print(f"Schleife wurde {count} mal durchlaufen")
+                #print(f"Anzahl trigger: {len(triggers)} ")
+                #print(f"Anzahl objects: {len(objects)} ")
+                #print("-------------------------------------")
+                batch_events.append([])
+                return mention_loss/sequence_output.size(0),torch.autograd.Variable(argex_loss,requires_grad=True),torch.autograd.Variable(argex_loss+mention_loss,requires_grad=True), batch_events
+            #if not self.training:
+                #print("----------- relations found-----------")
+            #print(f"----------- {len(localized_context)} relations found-----------")
+            #print(f"Anzahl trigger: {len(triggers)} ")
+            #print(f"Anzahl objects: {len(objects)} ")
+            
             embs = torch.stack(concat_embs)
             
             triggers = list(set(triggers))
@@ -320,7 +342,8 @@ class Encoder(nn.Module):
                         }
                         arguments.append(argument)
                 event = {
-                    'id':entity_ids[batch_i][t],
+                    #'id':entity_ids[batch_i][t],
+                    'id':doc_ids[batch_i],
                     'event_type':event_type,
                     'trigger':{'start':t_start ,'end':t_end, 'text':"".join(i.strip("##") if "##" in i else " "+i for i in batch_text[batch_i][t_start:t_end]).lstrip()},
                     'arguments':arguments
