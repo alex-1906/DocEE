@@ -13,7 +13,7 @@ from transformers import (AutoConfig, AutoModel, AutoTokenizer, BertConfig,
                           DistilBertConfig, RobertaConfig, XLMRobertaConfig)
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from src.data import collate_fn, parse_file
-from src.eval_util import get_eval, get_eval_by_id, get_eval_new
+from src.eval_util import get_eval
 from src.debug_model import Encoder
 from src.util import set_seed
 import wandb
@@ -33,7 +33,6 @@ parser.add_argument("--project", type=str, default="loss_ratio", help="project n
 parser.add_argument("--train_file", type=str, default="dev.json", help="train file")
 parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
 parser.add_argument("--test_file", type=str, default="dev.json", help="test file")
-#parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
 parser.add_argument("--full_task", type=str, default="False", help="True for full task, False for  eae subtask")
 parser.add_argument("--shared_roles", type=str, default="True", help="Shared Role Types")
@@ -90,10 +89,11 @@ lm_model = AutoModel.from_pretrained(
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
 if args.shared_roles == 'True':
-    print(f"\nshared roles\n")
+    shared_roles = True
     with open("data/Ontology/roles_shared.json") as f:
         relation_types = json.load(f)
 else:
+    shared_roles = False
     with open("data/Ontology/roles_unique.json") as f:
         relation_types = json.load(f)
 with open("data/Ontology/mention_types.json") as f:
@@ -111,7 +111,6 @@ if args.coref == 'True':
     args.train_file = "coref/"+args.train_file
     args.dev_file = "coref/"+args.dev_file
     args.test_file = "coref/"+args.test_file
-print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
 
 #bug with parser
 if args.full_task == "True":
@@ -119,8 +118,19 @@ if args.full_task == "True":
 else:
     full_task = False
 
-print(f"Full Task: {full_task}")
-print(f"Loss ratio: {args.loss_ratio}")
+
+
+
+print("\n------------------Configurations--------------------\n")
+
+print(f"Full task:            {full_task}")
+print(f"Shared roles:         {shared_roles}")
+print(f"Loss ratio:           {args.loss_ratio}")
+print(f"Train file:           {args.train_file}")
+print(f"Dev file:             {args.dev_file}")
+print(f"Test file:            {args.test_file}")
+
+print("\n----------------------------------------------------\n")
 
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
@@ -174,11 +184,19 @@ print("Using device: ", device)
 mymodel.to(device)
 
 # %%
-# ---------- Train Loop -----------#
+
 
 step_global = 0
 best_compound_f1 = 0.0
 for epoch in tqdm.tqdm(range(args.epochs)):
+
+    if epoch <= 100:
+        loss_ratio = 1
+    else:
+        loss_ratio = args.loss_ratio
+        
+
+    # ---------- Train Loop -----------#
     losses = []
     event_list = []
     doc_id_list = []
@@ -186,24 +204,15 @@ for epoch in tqdm.tqdm(range(args.epochs)):
     mymodel.train()
     with tqdm.tqdm(train_loader) as progress_bar:
         for sample in progress_bar:
-            
+
             step_global += args.batch_size
-            #with torch.autograd.detect_anomaly():
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
 
             #-------- Skip long docs ---------
-            if input_ids.size(1) > 1500:
+            if input_ids.size(1) > args.max_doc_len:
                 print(f"--------- long doc {input_ids.size(1)} skipped ---------")
                 continue
 
-            #---------Länge der spans ändert sich nicht? downsampling wird nicht durchgeführt---------
-
-
-            #candidates = candidate_spans[0]
-            #candidates = [random.sample(x, min(500, len(x))) for x in candidates]
-            #for ent in entity_spans[0]:
-             #   candidates.append(ent)
-            #candidate_spans = [candidates]
 
             t_start = datetime.now()
             mention_loss,argex_loss,loss,_ = mymodel(doc_ids,input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=full_task)
@@ -224,7 +233,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                 scaler.step(optimizer)
                 scaler.update()
             else:  
-                loss = (args.loss_ratio)*mention_loss + (1-args.loss_ratio)*argex_loss
+                loss = loss_ratio*mention_loss + (1-loss_ratio)*argex_loss
                 loss.backward()
                 nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
                 optimizer.step()
@@ -238,9 +247,10 @@ for epoch in tqdm.tqdm(range(args.epochs)):
     mymodel.eval()
     with tqdm.tqdm(dev_loader) as progress_bar:
         for sample in progress_bar:
-     
             input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-            if input_ids.size(1) > 1500:
+           
+            #-------- Skip long docs ---------
+            if input_ids.size(1) > args.max_doc_len:
                 print(f"--------- long doc {input_ids.size(1)} skipped ---------")
                 continue
             
@@ -262,7 +272,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                         print("----------in except block---------")
                         event_list.append([])
 
-    report = get_eval_new(event_list,token_maps,doc_id_list)
+    report = get_eval(event_list,token_maps,doc_id_list)
     print(report)
     if full_task:
         compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
@@ -281,7 +291,6 @@ for epoch in tqdm.tqdm(range(args.epochs)):
         torch.save(mymodel.state_dict(), f"checkpoints/{args.project}_{random_string}.pt")
 
 # --------- Evaluation on Test  ------------#
-print("---- TEST EVAL -----")
 try:
     mymodel.load_state_dict(torch.load(f"checkpoints/{args.project}_{random_string}.pt"))
 except:
@@ -294,7 +303,8 @@ token_maps = []
 with tqdm.tqdm(test_loader) as progress_bar:
     for sample in progress_bar:
         input_ids, attention_mask, entity_spans, entity_types, entity_ids, relation_labels, text, token_map, candidate_spans, doc_ids = sample
-        if input_ids.size(1) > 1500:
+        #-------- Skip long docs ---------
+        if input_ids.size(1) > args.max_doc_len:
                 print(f"--------- long doc {input_ids.size(1)} skipped ---------")
                 continue
         with torch.no_grad():
@@ -309,7 +319,8 @@ with tqdm.tqdm(test_loader) as progress_bar:
                 except:
                     print("in exception block")
                     event_list.append([])
-report = get_eval_new(event_list,token_maps,doc_id_list)
+
+report = get_eval(event_list,token_maps,doc_id_list)
 print(report)
 if full_task:
     compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
