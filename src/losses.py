@@ -8,11 +8,11 @@ class ATLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, logits, labels):
+    def forward(self, logits, labels, th_pos=0):
         # TH label
         th_label = torch.zeros_like(labels, dtype=torch.float).to(labels)
-        th_label[:, 0] = 1.0
-        labels[:, 0] = 0.0
+        th_label[:, th_pos] = 1.0
+        labels[:, th_pos] = 0.0
 
         p_mask = labels + th_label
         n_mask = 1 - labels

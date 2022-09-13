@@ -26,6 +26,10 @@ def get_df(event_list,token_maps,doc_id_list):
                 for coref in arg['corefs']:
                     coref['start'] = t_map[coref['start']+1]
                     coref['end'] = t_map[coref['end']+1]
+
+    
+    df = df.loc[doc_id_list]
+    #print(len(df))
     return df
 
 
@@ -355,9 +359,9 @@ def get_eval_new(event_list,token_maps,doc_id_list):
                 clf_gold += 1
         trigger_gold += len(gold_events)
             
-    #print(trigger_pred)
-    #print(trigger_gold)
-    #print(trigger_idf)
+    print(trigger_pred)
+    print(trigger_gold)
+    print(trigger_idf)
 
     #----- Identification P,R,F1 -----
     idf_h_p, idf_h_r, idf_h_f1 = compute_f1(idf_pred, idf_gold, idf_h_matched)

@@ -28,15 +28,15 @@ print(random_string)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--random_seed", type=int, default=123, help="random seed")
-parser.add_argument("--project", type=str, default="overfitting", help="project name for wandb")
+parser.add_argument("--project", type=str, default="loss_ratio", help="project name for wandb")
 
 parser.add_argument("--train_file", type=str, default="dev.json", help="train file")
 parser.add_argument("--dev_file", type=str, default="dev.json", help="dev file")
 parser.add_argument("--test_file", type=str, default="dev.json", help="test file")
 #parser.add_argument("--overfit_test", type=str, default=False, help="True for full task, False for  eae subtask")
 
-parser.add_argument("--full_task", type=str, default=False, help="True for full task, False for  eae subtask")
-parser.add_argument("--shared_roles", type=str, default=False, help="Shared Role Types")
+parser.add_argument("--full_task", type=str, default="False", help="True for full task, False for  eae subtask")
+parser.add_argument("--shared_roles", type=str, default="True", help="Shared Role Types")
 parser.add_argument("--coref", type=str, default=False, help="Use coref mentions for embedding")
 
 parser.add_argument("--soft_mention", type=str, default=False, help="method for mention detection")
@@ -52,7 +52,10 @@ parser.add_argument("--mixed_precision", type=str, default=False, help="use mixe
 
 parser.add_argument("--learning_rate", type=float, default=1e-5, help="learning rate")
 parser.add_argument("--num_trigger_prototypes", type=float, default=1, help="number of prototypes for trigger extraction" ) 
-parser.add_argument("--loss_ratio", type=float, default=0.5, help="")
+parser.add_argument("--loss_ratio", type=float, default=1, help="ratio of mention and argex loss")
+parser.add_argument("--max_doc_len", type=float, default=1500, help="maximum length of a document")
+
+
 
 #%%
 args = parser.parse_args()
@@ -110,13 +113,14 @@ if args.coref == 'True':
     args.test_file = "coref/"+args.test_file
 print(f"\nTraining on {args.train_file}; Evaluating on {args.dev_file}\n; Testing on {args.test_file}")
 
-#bug with argparser
-if args.full_task == 'True':
-    print("full task")
+#bug with parser
+if args.full_task == "True":
     full_task = True
 else:
-    print("subtask")
     full_task = False
+
+print(f"Full Task: {full_task}")
+print(f"Loss ratio: {args.loss_ratio}")
 
 train_loader = DataLoader(
     parse_file(f"data/WikiEvents/preprocessed/{args.train_file}",
@@ -192,13 +196,19 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                 print(f"--------- long doc {input_ids.size(1)} skipped ---------")
                 continue
 
+            #---------Länge der spans ändert sich nicht? downsampling wird nicht durchgeführt---------
+
+
+            #candidates = candidate_spans[0]
+            #candidates = [random.sample(x, min(500, len(x))) for x in candidates]
+            #for ent in entity_spans[0]:
+             #   candidates.append(ent)
+            #candidate_spans = [candidates]
 
             t_start = datetime.now()
             mention_loss,argex_loss,loss,_ = mymodel(doc_ids,input_ids.to(device), attention_mask.to(device), candidate_spans, relation_labels, entity_spans, entity_types, entity_ids, text, e2e=full_task)
             t_end = datetime.now()
             t_time = (t_end - t_start).total_seconds()
-
-            #loss = args.loss_ratio * mention_loss + (1-args.loss_ratio) * argex_loss
             
             wandb.log({"mention_loss": mention_loss.item()}, step=step_global) 
             wandb.log({"argex_loss": argex_loss.item()}, step=step_global) 
@@ -214,10 +224,8 @@ for epoch in tqdm.tqdm(range(args.epochs)):
                 scaler.step(optimizer)
                 scaler.update()
             else:  
-                #Nur über mentions loss optimieren
-
-
-                mention_loss.backward()
+                loss = (args.loss_ratio)*mention_loss + (1-args.loss_ratio)*argex_loss
+                loss.backward()
                 nn.utils.clip_grad_norm_(mymodel.parameters(), 1.0)
                 optimizer.step()
 
@@ -256,7 +264,7 @@ for epoch in tqdm.tqdm(range(args.epochs)):
 
     report = get_eval_new(event_list,token_maps,doc_id_list)
     print(report)
-    if args.full_task:
+    if full_task:
         compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
     else:
         compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"])/4
@@ -303,7 +311,7 @@ with tqdm.tqdm(test_loader) as progress_bar:
                     event_list.append([])
 report = get_eval_new(event_list,token_maps,doc_id_list)
 print(report)
-if args.full_task:
+if full_task:
     compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"] + report["Trigger"]["Identification"]["F1"] + report["Trigger"]["Classification"]["F1"])/6
 else:
     compound_f1 = (report["Identification"]["Head"]["F1"] + report["Identification"]["Coref"]["F1"] + report["Classification"]["Head"]["F1"] + report["Classification"]["Coref"]["F1"])/4
