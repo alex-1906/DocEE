@@ -6,8 +6,8 @@ This repository contains the code for the bachelor thesis "Document-Level Event 
 
 # Table of Contents
 1. [Data](#data)
-2. [Setup Dependencies](#dependencies)
-3. [Reproducing Results (+ link to trained models)](#reproducing-results)
+2. [Setup](#setup)
+3. [Checkpoints](#checkpoints)
 4. [Training](#training)
 
 
