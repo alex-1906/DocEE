@@ -40,6 +40,10 @@ For creation of the Ontology files containing feasible roles, relation types and
 python preprocess.py --ont_files=True
 ```
 
+# Checkpoints
+
+We additionally provide model checkpoints, which are availabe [here](https://bwsyncandshare.kit.edu/s/49djSKD8eeZjQdH).
+
 # Training
 Example of training a model on the subtask of event argument extraction with shared roles:
 ```
