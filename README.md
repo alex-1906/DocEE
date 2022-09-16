@@ -57,9 +57,3 @@ python train.py --full_task=True --shared_roles=True --learning_rate=1e-5 --num_
 
 Please note, that the execution of the train.py file already includes the evaluation on the dev set after each epoch. The weights corresponding with the best run on the dev set are then saved as checkpoint and loaded for the evaluation on the test set at the end of the train.py file.
 
-We additionally provide scripts, which can be run by the following command:
-```
-bash train_wikievents_subtask.sh
-
-bash train_wikievents_fulltask.sh
-```
